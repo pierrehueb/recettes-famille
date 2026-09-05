@@ -58,43 +58,125 @@ function RecipesPage({ recipes, loading, error, onRetry, onAdd }) {
   </section>
 }
 
+const emptyIngredient = () => ({ quantity: '', unit: '', name: '', notes: '' })
+const emptyStep = () => ({ instruction: '', duration_minutes: '', temperature_celsius: '' })
+
 function AddRecipePage({ user, onCancel, onCreated }) {
   const [form, setForm] = useState({ title: '', description: '', original_author: '', origin_year: '', difficulty: '', servings: '' })
+  const [ingredients, setIngredients] = useState([emptyIngredient()])
+  const [steps, setSteps] = useState([emptyStep()])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const update = (field, value) => setForm(current => ({ ...current, [field]: value }))
+  const updateIngredient = (index, field, value) => setIngredients(current => current.map((item, i) => i === index ? { ...item, [field]: value } : item))
+  const updateStep = (index, field, value) => setSteps(current => current.map((item, i) => i === index ? { ...item, [field]: value } : item))
+  const addIngredient = () => setIngredients(current => [...current, emptyIngredient()])
+  const removeIngredient = index => setIngredients(current => current.length === 1 ? current : current.filter((_, i) => i !== index))
+  const moveIngredient = (index, direction) => setIngredients(current => { const target = index + direction; if (target < 0 || target >= current.length) return current; const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next })
+  const addStep = () => setSteps(current => [...current, emptyStep()])
+  const removeStep = index => setSteps(current => current.length === 1 ? current : current.filter((_, i) => i !== index))
+  const moveStep = (index, direction) => setSteps(current => { const target = index + direction; if (target < 0 || target >= current.length) return current; const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next })
 
   const saveRecipe = async (event) => {
     event.preventDefault()
     if (!supabase) return setError('La connexion Supabase n’est pas configurée.')
+    if (!form.title.trim()) return setError('Le nom de la recette est obligatoire.')
+    const validIngredients = ingredients.filter(item => item.name.trim())
+    const invalidIngredient = ingredients.some(item => item.name.trim() && item.quantity !== '' && Number.isNaN(Number(item.quantity)))
+    const validSteps = steps.filter(item => item.instruction.trim())
+    if (invalidIngredient) return setError('Vérifiez les quantités des ingrédients.')
+    if (validSteps.length === 0) return setError('Ajoutez au moins une étape de préparation.')
+
     setLoading(true); setError('')
-    const { data: membership, error: membershipError } = await supabase.from('family_members').select('family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
-    if (membershipError || !membership) { setError(membershipError?.message || 'Votre compte n’est associé à aucune famille active.'); setLoading(false); return }
-    const payload = {
-      family_id: membership.family_id,
-      title: form.title.trim(),
-      description: form.description.trim() || null,
-      original_author: form.original_author.trim() || null,
-      origin_year: form.origin_year ? Number(form.origin_year) : null,
-      difficulty: form.difficulty || null,
-      servings: form.servings ? Number(form.servings) : null,
-      created_by: user.id,
+    try {
+      const { data: membership, error: membershipError } = await supabase.from('family_members').select('family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
+      if (membershipError || !membership) throw new Error(membershipError?.message || 'Votre compte n’est associé à aucune famille active.')
+
+      const payload = {
+        family_id: membership.family_id,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        original_author: form.original_author.trim() || null,
+        origin_year: form.origin_year ? Number(form.origin_year) : null,
+        difficulty: form.difficulty || null,
+        servings: form.servings ? Number(form.servings) : null,
+        created_by: user.id,
+      }
+      const { data: recipe, error: recipeError } = await supabase.from('recipes').insert(payload).select('id').single()
+      if (recipeError) throw recipeError
+
+      const { data: version, error: versionError } = await supabase.from('recipe_versions').insert({ recipe_id: recipe.id, version_name: 'Version familiale', created_by: user.id }).select('id').single()
+      if (versionError) throw versionError
+
+      if (validIngredients.length > 0) {
+        const ingredientRows = validIngredients.map((item, index) => ({
+          version_id: version.id,
+          position: index + 1,
+          quantity: item.quantity === '' ? null : Number(item.quantity),
+          unit: item.unit.trim() || null,
+          name: item.name.trim(),
+          notes: item.notes.trim() || null,
+        }))
+        const { error: ingredientsError } = await supabase.from('ingredients').insert(ingredientRows)
+        if (ingredientsError) throw ingredientsError
+      }
+
+      const stepRows = validSteps.map((item, index) => ({
+        version_id: version.id,
+        position: index + 1,
+        instruction: item.instruction.trim(),
+        duration_minutes: item.duration_minutes === '' ? null : Number(item.duration_minutes),
+        temperature_celsius: item.temperature_celsius === '' ? null : Number(item.temperature_celsius),
+      }))
+      const { error: stepsError } = await supabase.from('preparation_steps').insert(stepRows)
+      if (stepsError) throw stepsError
+
+      onCreated(recipe.id)
+    } catch (saveError) {
+      setError(saveError.message || 'Une erreur est survenue pendant l’enregistrement.')
+    } finally {
+      setLoading(false)
     }
-    const { data, error: insertError } = await supabase.from('recipes').insert(payload).select('id').single()
-    if (insertError) setError(insertError.message)
-    else onCreated(data.id)
-    setLoading(false)
   }
 
   return <section className="form-section">
-    <div className="form-header"><div><p className="section-kicker">Nouvelle recette</p><h2>Ajouter une recette familiale</h2><p>Commencez par les informations principales. Les ingrédients, étapes et documents originaux seront ajoutés ensuite.</p></div><button type="button" className="secondary-button" onClick={onCancel}>Annuler</button></div>
+    <div className="form-header"><div><p className="section-kicker">Nouvelle recette</p><h2>Ajouter une recette familiale</h2><p>Conservez la recette telle qu’elle est transmise, puis enrichissez-la avec ses ingrédients et ses étapes.</p></div><button type="button" className="secondary-button" onClick={onCancel}>Annuler</button></div>
     <form className="recipe-form large-form" onSubmit={saveRecipe}>
-      <div className="form-grid"><label className="full-field">Nom de la recette *<input value={form.title} onChange={e => update('title', e.target.value)} required placeholder="Ex. Tarte aux pommes de Mamie" /></label>
-      <label className="full-field">Description<textarea value={form.description} onChange={e => update('description', e.target.value)} rows="4" placeholder="Une courte présentation ou un souvenir lié à la recette…" /></label>
-      <label>Auteur d’origine<input value={form.original_author} onChange={e => update('original_author', e.target.value)} placeholder="Ex. Mamie" /></label>
-      <label>Année d’origine<input type="number" min="1800" max="2100" value={form.origin_year} onChange={e => update('origin_year', e.target.value)} placeholder="1987" /></label>
-      <label>Difficulté<select value={form.difficulty} onChange={e => update('difficulty', e.target.value)}><option value="">Non précisée</option><option value="facile">Facile</option><option value="moyenne">Moyenne</option><option value="difficile">Difficile</option></select></label>
-      <label>Nombre de personnes<input type="number" min="1" max="100" value={form.servings} onChange={e => update('servings', e.target.value)} placeholder="4" /></label></div>
+      <div className="form-grid">
+        <label className="full-field">Nom de la recette *<input value={form.title} onChange={e => update('title', e.target.value)} required placeholder="Ex. Tarte aux pommes de Mamie" /></label>
+        <label className="full-field">Description<textarea value={form.description} onChange={e => update('description', e.target.value)} rows="4" placeholder="Une courte présentation ou un souvenir lié à la recette…" /></label>
+        <label>Auteur d’origine<input value={form.original_author} onChange={e => update('original_author', e.target.value)} placeholder="Ex. Mamie" /></label>
+        <label>Année d’origine<input type="number" min="1800" max="2100" value={form.origin_year} onChange={e => update('origin_year', e.target.value)} placeholder="1987" /></label>
+        <label>Difficulté<select value={form.difficulty} onChange={e => update('difficulty', e.target.value)}><option value="">Non précisée</option><option value="facile">Facile</option><option value="moyenne">Moyenne</option><option value="difficile">Difficile</option></select></label>
+        <label>Nombre de personnes<input type="number" min="1" max="100" value={form.servings} onChange={e => update('servings', e.target.value)} placeholder="4" /></label>
+      </div>
+
+      <section className="editor-section">
+        <div className="editor-section-header"><div><p className="section-kicker">Les ingrédients</p><h3>De quoi avez-vous besoin ?</h3></div><button type="button" className="secondary-button" onClick={addIngredient}>＋ Ajouter un ingrédient</button></div>
+        <div className="ingredient-list">
+          {ingredients.map((item, index) => <div className="ingredient-row" key={index}>
+            <span className="row-number">{index + 1}</span>
+            <input className="quantity-input" type="number" min="0" step="any" value={item.quantity} onChange={e => updateIngredient(index, 'quantity', e.target.value)} placeholder="Qté" aria-label={`Quantité ingrédient ${index + 1}`} />
+            <input className="unit-input" value={item.unit} onChange={e => updateIngredient(index, 'unit', e.target.value)} placeholder="Unité" aria-label={`Unité ingrédient ${index + 1}`} />
+            <input className="name-input" value={item.name} onChange={e => updateIngredient(index, 'name', e.target.value)} placeholder="Ex. farine" aria-label={`Nom ingrédient ${index + 1}`} />
+            <input className="notes-input" value={item.notes} onChange={e => updateIngredient(index, 'notes', e.target.value)} placeholder="Précision (optionnel)" aria-label={`Note ingrédient ${index + 1}`} />
+            <div className="row-actions"><button type="button" onClick={() => moveIngredient(index, -1)} disabled={index === 0} aria-label="Monter">↑</button><button type="button" onClick={() => moveIngredient(index, 1)} disabled={index === ingredients.length - 1} aria-label="Descendre">↓</button><button type="button" onClick={() => removeIngredient(index)} disabled={ingredients.length === 1} aria-label="Supprimer">×</button></div>
+          </div>)}
+        </div>
+      </section>
+
+      <section className="editor-section">
+        <div className="editor-section-header"><div><p className="section-kicker">La préparation</p><h3>Les étapes, dans l’ordre</h3></div><button type="button" className="secondary-button" onClick={addStep}>＋ Ajouter une étape</button></div>
+        <div className="step-list">
+          {steps.map((step, index) => <div className="step-row" key={index}>
+            <div className="step-number">{index + 1}</div>
+            <textarea value={step.instruction} onChange={e => updateStep(index, 'instruction', e.target.value)} rows="3" placeholder="Décrivez cette étape…" aria-label={`Étape ${index + 1}`} />
+            <div className="step-details"><input type="number" min="0" value={step.duration_minutes} onChange={e => updateStep(index, 'duration_minutes', e.target.value)} placeholder="Durée (min)" aria-label={`Durée étape ${index + 1}`} /><input type="number" min="0" step="any" value={step.temperature_celsius} onChange={e => updateStep(index, 'temperature_celsius', e.target.value)} placeholder="Température °C" aria-label={`Température étape ${index + 1}`} /></div>
+            <div className="row-actions"><button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label="Monter">↑</button><button type="button" onClick={() => moveStep(index, 1)} disabled={index === steps.length - 1} aria-label="Descendre">↓</button><button type="button" onClick={() => removeStep(index)} disabled={steps.length === 1} aria-label="Supprimer">×</button></div>
+          </div>)}
+        </div>
+      </section>
+
       {error && <div className="form-error">{error}</div>}
       <div className="form-actions"><button type="button" className="secondary-button" onClick={onCancel}>Annuler</button><button type="submit" className="primary-button" disabled={loading}>{loading ? 'Enregistrement…' : 'Enregistrer la recette'}</button></div>
     </form>
