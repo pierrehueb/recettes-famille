@@ -1,0 +1,209 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+
+:root {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #2f2923;
+  background: #fffaf3;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #fffaf3;
+}
+
+button {
+  font: inherit;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  border-bottom: 1px solid #eadfd2;
+  background: rgba(255, 250, 243, 0.96);
+}
+
+.brand {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #f2dfc6;
+  font-size: 25px;
+}
+
+.eyebrow,
+.hero-kicker,
+.section-kicker {
+  margin: 0 0 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9a6b42;
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.main-content {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  flex: 1;
+}
+
+.hero {
+  padding: 82px 0 70px;
+  max-width: 780px;
+}
+
+.hero h2 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.5rem, 6vw, 4.7rem);
+  line-height: 1.04;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.hero-text {
+  max-width: 650px;
+  margin: 25px 0 0;
+  color: #6d6258;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.primary-button,
+.secondary-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.primary-button {
+  color: #fffaf3;
+  background: #6f4b2e;
+  box-shadow: 0 8px 20px rgba(72, 45, 25, 0.16);
+}
+
+.secondary-button {
+  color: #5b4634;
+  background: #f3e7d8;
+}
+
+.primary-button:hover,
+.secondary-button:hover {
+  transform: translateY(-1px);
+}
+
+.section-preview {
+  padding: 10px 0 80px;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 2rem;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.preview-card {
+  padding: 26px;
+  min-height: 190px;
+  border: 1px solid #eadfd2;
+  border-radius: 20px;
+  background: #fffdf9;
+}
+
+.preview-card.featured {
+  background: #f8eee2;
+  border-color: #ead6bd;
+}
+
+.card-icon {
+  font-size: 1.7rem;
+}
+
+.preview-card h4 {
+  margin: 18px 0 8px;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.3rem;
+}
+
+.preview-card p {
+  margin: 0;
+  color: #756a61;
+  line-height: 1.55;
+}
+
+.app-footer {
+  padding: 24px;
+  text-align: center;
+  border-top: 1px solid #eadfd2;
+  color: #8b7c6e;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 760px) {
+  .brand {
+    padding: 18px;
+  }
+
+  .main-content {
+    width: min(100% - 36px, 1180px);
+  }
+
+  .hero {
+    padding: 58px 0 52px;
+  }
+
+  .hero h2 {
+    font-size: clamp(2.45rem, 12vw, 3.7rem);
+  }
+
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
