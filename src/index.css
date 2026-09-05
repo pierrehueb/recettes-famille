@@ -2,7 +2,8 @@
 :root { font-family: 'DM Sans', system-ui, sans-serif; color: #2f2923; background: #fffaf3; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: #fffaf3; }
-button { font: inherit; }
+button,input,textarea,select { font: inherit; }
+button { cursor: pointer; }
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 .app-header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #eadfd2; background: rgba(255,250,243,.96); backdrop-filter: blur(10px); }
 .header-inner { max-width: 1180px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 24px; }
@@ -12,23 +13,26 @@ button { font: inherit; }
 .eyebrow,.hero-kicker,.section-kicker { margin: 0 0 5px; text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 700; color: #9a6b42; }
 .brand-title { display: block; font-family: 'Playfair Display',Georgia,serif; font-size: 1.25rem; line-height: 1.15; }
 .desktop-nav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
-.nav-button { border: 0; border-radius: 999px; padding: 10px 13px; background: transparent; color: #6d6258; cursor: pointer; font-weight: 600; }
+.nav-button { border: 0; border-radius: 999px; padding: 10px 13px; background: transparent; color: #6d6258; font-weight: 600; }
 .nav-button span { margin-right: 6px; }
 .nav-button:hover,.nav-button.active { background: #f3e7d8; color: #5b3e27; }
-.profile-button { width: 38px; height: 38px; border: 1px solid #ead6bd; border-radius: 50%; background: #f8eee2; color: #6f4b2e; font-weight: 700; cursor: pointer; }
+.profile-button { width: 38px; height: 38px; border: 1px solid #ead6bd; border-radius: 50%; background: #f8eee2; color: #6f4b2e; font-weight: 700; }
 .main-content { width: min(1180px,calc(100% - 48px)); margin: 0 auto; flex: 1; }
 .hero { padding: 82px 0 70px; max-width: 780px; }
-.hero h2 { margin: 0; font-family: 'Playfair Display',Georgia,serif; font-size: clamp(2.5rem,6vw,4.7rem); line-height: 1.04; font-weight: 600; letter-spacing: -.035em; }
+.hero h2,.form-header h2,.auth-card h2 { margin: 0; font-family: 'Playfair Display',Georgia,serif; font-size: clamp(2.5rem,6vw,4.7rem); line-height: 1.04; font-weight: 600; letter-spacing: -.035em; }
 .hero-text { max-width: 650px; margin: 25px 0 0; color: #6d6258; font-size: 1.08rem; line-height: 1.7; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-.primary-button,.secondary-button { border: 0; border-radius: 999px; padding: 13px 20px; cursor: pointer; font-weight: 600; }
+.primary-button,.secondary-button { border: 0; border-radius: 999px; padding: 13px 20px; font-weight: 600; }
 .primary-button { color: #fffaf3; background: #6f4b2e; box-shadow: 0 8px 20px rgba(72,45,25,.16); }
+.primary-button:disabled { opacity: .65; cursor: wait; }
 .secondary-button { color: #5b4634; background: #f3e7d8; }
-.section-preview,.recipes-section { padding: 10px 0 80px; }
+.small-button { padding: 10px 15px; }
+.section-preview,.recipes-section,.form-section { padding: 10px 0 80px; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
 .section-heading h3 { margin: 0; font-family: 'Playfair Display',Georgia,serif; font-size: 2rem; }
+.section-heading-actions { display: flex; align-items: center; gap: 14px; }
 .preview-grid,.recipe-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-top: 24px; }
-.preview-card { width: 100%; padding: 26px; min-height: 190px; border: 1px solid #eadfd2; border-radius: 20px; background: #fffdf9; color: inherit; text-align: left; cursor: pointer; }
+.preview-card { width: 100%; padding: 26px; min-height: 190px; border: 1px solid #eadfd2; border-radius: 20px; background: #fffdf9; color: inherit; text-align: left; }
 .preview-card.featured { background: #f8eee2; border-color: #ead6bd; }
 .card-icon { font-size: 1.7rem; }
 .preview-card h4 { margin: 18px 0 8px; font-family: 'Playfair Display',Georgia,serif; font-size: 1.3rem; }
@@ -44,9 +48,25 @@ button { font: inherit; }
 .status-card h4 { margin: 12px 0 8px; font-family: 'Playfair Display',Georgia,serif; font-size: 1.5rem; color: #2f2923; }
 .status-card p { margin: 6px 0 18px; }
 .empty-icon { font-size: 2rem; }
-.error-card { border-color: #e4c9b8; }
+.error-card,.form-error { border-color: #e4c9b8; }
+.auth-section { min-height: 70vh; display: grid; place-items: center; padding: 50px 0; }
+.auth-card { width: min(100%, 480px); padding: 36px; border: 1px solid #eadfd2; border-radius: 24px; background: #fffdf9; box-shadow: 0 18px 50px rgba(72,45,25,.08); }
+.auth-card h2 { font-size: clamp(2.2rem,6vw,3.4rem); }
+.auth-card > p:not(.section-kicker) { color: #756a61; line-height: 1.6; margin: 14px 0 24px; }
+.form-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 60px 0 35px; }
+.form-header h2 { font-size: clamp(2.2rem,5vw,4rem); }
+.form-header p:not(.section-kicker) { max-width: 700px; color: #756a61; line-height: 1.6; margin: 16px 0 0; }
+.recipe-form { display: grid; gap: 18px; }
+.recipe-form label { display: grid; gap: 8px; color: #5b4634; font-weight: 600; }
+.recipe-form input,.recipe-form textarea,.recipe-form select { width: 100%; border: 1px solid #dfd1c1; border-radius: 12px; padding: 12px 14px; background: #fff; color: #2f2923; outline: none; }
+.recipe-form input:focus,.recipe-form textarea:focus,.recipe-form select:focus { border-color: #9a6b42; box-shadow: 0 0 0 3px rgba(154,107,66,.12); }
+.recipe-form textarea { resize: vertical; }
+.form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 18px; padding: 28px; border: 1px solid #eadfd2; border-radius: 22px; background: #fffdf9; }
+.full-field { grid-column: 1 / -1; }
+.form-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.form-error { padding: 12px 14px; border: 1px solid #e4c9b8; border-radius: 12px; background: #fff5ef; color: #8b4930; line-height: 1.45; }
 .mobile-nav { display: none; }
 .app-footer { padding: 24px; text-align: center; border-top: 1px solid #eadfd2; color: #8b7c6e; font-size: .88rem; }
-@media (max-width:900px) { .desktop-nav{display:none}.header-inner{padding:14px 18px}.profile-button{margin-left:auto}.mobile-nav{position:sticky;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);padding:8px 8px calc(8px + env(safe-area-inset-bottom));border-top:1px solid #eadfd2;background:rgba(255,250,243,.97);backdrop-filter:blur(10px)}.mobile-nav-button{border:0;background:transparent;color:#8b7c6e;padding:6px 2px;border-radius:12px;cursor:pointer;font-size:.72rem;font-weight:600}.mobile-nav-button.active{color:#6f4b2e;background:#f3e7d8}.mobile-nav-icon{display:block;font-size:1.15rem;line-height:1.2;margin-bottom:2px}.app-footer{padding-bottom:18px}.preview-grid,.recipe-grid{grid-template-columns:repeat(2,1fr)} }
-@media (max-width:760px) { .brand-title{font-size:1.08rem}.main-content{width:min(100% - 36px,1180px)}.hero{padding:58px 0 52px}.hero h2{font-size:clamp(2.45rem,12vw,3.7rem)}.preview-grid,.recipe-grid{grid-template-columns:1fr} }
+@media (max-width:900px) { .desktop-nav{display:none}.header-inner{padding:14px 18px}.profile-button{margin-left:auto}.mobile-nav{position:sticky;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);padding:8px 8px calc(8px + env(safe-area-inset-bottom));border-top:1px solid #eadfd2;background:rgba(255,250,243,.97);backdrop-filter:blur(10px)}.mobile-nav-button{border:0;background:transparent;color:#8b7c6e;padding:6px 2px;border-radius:12px;font-size:.72rem;font-weight:600}.mobile-nav-button.active{color:#6f4b2e;background:#f3e7d8}.mobile-nav-icon{display:block;font-size:1.15rem;line-height:1.2;margin-bottom:2px}.app-footer{padding-bottom:18px}.preview-grid,.recipe-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:760px) { .brand-title{font-size:1.08rem}.main-content{width:min(100% - 36px,1180px)}.hero{padding:58px 0 52px}.hero h2{font-size:clamp(2.45rem,12vw,3.7rem)}.preview-grid,.recipe-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.full-field{grid-column:auto}.form-header{padding-top:42px;flex-direction:column}.section-heading-actions{align-items:flex-end;flex-direction:column-reverse}.small-button{width:100%}.auth-card{padding:28px}.form-actions{justify-content:stretch;flex-direction:column-reverse}.form-actions button{width:100%} }
 @media (max-width:480px) { .brand .eyebrow{display:none}.brand-title{font-size:1rem}.brand-mark{width:40px;height:40px;flex-basis:40px} }
