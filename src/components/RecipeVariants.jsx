@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getCurrentFamilyMembership } from '../lib/family'
 
 export default function RecipeVariants({ recipeId, user, currentVersionId }) {
   const [versions, setVersions] = useState([])
@@ -35,7 +36,8 @@ export default function RecipeVariants({ recipeId, user, currentVersionId }) {
     event.preventDefault(); if (!form.name.trim() || !supabase || !currentVersionId) return
     setSaving(true); setError('')
     try {
-      const { data: version, error: versionError } = await supabase.from('recipe_versions').insert({ recipe_id: recipeId, version_name: form.name.trim(), notes: form.notes.trim() || null, based_on_version_id: currentVersionId, created_by: user.id }).select('id').single()
+      const membership = await getCurrentFamilyMembership(user?.id)
+      const { data: version, error: versionError } = await supabase.from('recipe_versions').insert({ recipe_id: recipeId, version_name: form.name.trim(), notes: form.notes.trim() || null, based_on_version_id: currentVersionId, created_by: membership.id }).select('id').single()
       if (versionError) throw versionError
       const baseIngredients = ingredients[currentVersionId] ?? []
       const baseSteps = steps[currentVersionId] ?? []
