@@ -54,6 +54,7 @@ function RecipesPage({ recipes, loading, error, onRetry, onAdd, onOpen }) {
 
 function MediaSection({ recipeId, user }) {
   const [familyId, setFamilyId] = useState(null)
+  const [membership, setMembership] = useState(null)
   const [photos, setPhotos] = useState([])
   const [originals, setOriginals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -67,6 +68,7 @@ function MediaSection({ recipeId, user }) {
     try {
       const { data: membership, error: membershipError } = await supabase.from('family_members').select('id, family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
       if (membershipError || !membership) throw new Error(membershipError?.message || 'Aucune famille active trouvée.')
+      setMembership(membership)
       setFamilyId(membership.family_id)
       const { data, error: mediaError } = await supabase.from('media').select('id, storage_path, media_type, mime_type, original_filename, caption, position, created_at').eq('recipe_id', recipeId).order('position', { ascending: true }).order('created_at', { ascending: true })
       if (mediaError) throw mediaError
