@@ -65,7 +65,7 @@ function MediaSection({ recipeId, user }) {
     if (!supabase || !recipeId || !user) return
     setLoading(true); setError(''); setMessage('')
     try {
-      const { data: membership, error: membershipError } = await supabase.from('family_members').select('family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
+      const { data: membership, error: membershipError } = await supabase.from('family_members').select('id, family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
       if (membershipError || !membership) throw new Error(membershipError?.message || 'Aucune famille active trouvée.')
       setFamilyId(membership.family_id)
       const { data, error: mediaError } = await supabase.from('media').select('id, storage_path, media_type, mime_type, original_filename, caption, position, created_at').eq('recipe_id', recipeId).order('position', { ascending: true }).order('created_at', { ascending: true })
@@ -97,7 +97,7 @@ function MediaSection({ recipeId, user }) {
         const path = `${familyId}/${folder}/${id}${extension}`
         const { error: uploadError } = await supabase.storage.from('family-media').upload(path, file, { contentType: file.type || undefined, upsert: false })
         if (uploadError) throw uploadError
-        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, recipe_id: recipeId, storage_path: path, media_type: kind === 'photo' ? 'photo' : 'scan', mime_type: file.type || null, original_filename: file.name, position: kind === 'photo' ? photos.length : 0, created_by: user.id })
+        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, recipe_id: recipeId, storage_path: path, media_type: kind === 'photo' ? 'photo' : 'scan', mime_type: file.type || null, original_filename: file.name, position: kind === 'photo' ? photos.length : 0, created_by: membership.id })
         if (mediaError) throw mediaError
       }
       setMessage(kind === 'photo' ? 'Photo(s) ajoutée(s) à la recette.' : 'Le manuscrit original a été conservé dans le livre familial.')
@@ -197,11 +197,11 @@ function AddRecipePage({ user, onCancel, onCreated }) {
     if (validSteps.length === 0) return setError('Ajoutez au moins une étape de préparation.')
     setLoading(true); setError('')
     try {
-      const { data: membership, error: membershipError } = await supabase.from('family_members').select('family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
+      const { data: membership, error: membershipError } = await supabase.from('family_members').select('id, family_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle()
       if (membershipError || !membership) throw new Error(membershipError?.message || 'Votre compte n’est associé à aucune famille active.')
-      const { data: recipe, error: recipeError } = await supabase.from('recipes').insert({ family_id: membership.family_id, title: form.title.trim(), description: form.description.trim() || null, original_author: form.original_author.trim() || null, origin_year: form.origin_year ? Number(form.origin_year) : null, difficulty: form.difficulty || null, servings: form.servings ? Number(form.servings) : null, created_by: user.id }).select('id').single()
+      const { data: recipe, error: recipeError } = await supabase.from('recipes').insert({ family_id: membership.family_id, title: form.title.trim(), description: form.description.trim() || null, original_author: form.original_author.trim() || null, origin_year: form.origin_year ? Number(form.origin_year) : null, difficulty: form.difficulty || null, servings: form.servings ? Number(form.servings) : null, created_by: membership.id }).select('id').single()
       if (recipeError) throw recipeError
-      const { data: version, error: versionError } = await supabase.from('recipe_versions').insert({ recipe_id: recipe.id, version_name: 'Version familiale', created_by: user.id }).select('id').single()
+      const { data: version, error: versionError } = await supabase.from('recipe_versions').insert({ recipe_id: recipe.id, version_name: 'Version familiale', created_by: membership.id }).select('id').single()
       if (versionError) throw versionError
       if (validIngredients.length) {
         const { error } = await supabase.from('ingredients').insert(validIngredients.map((item, index) => ({ version_id: version.id, position: index + 1, quantity: item.quantity === '' ? null : Number(item.quantity), unit: item.unit.trim() || null, name: item.name.trim(), notes: item.notes.trim() || null })))
