@@ -241,6 +241,16 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
     <button type="button" className="secondary-button back-button" onClick={onBack}>← Retour aux recettes</button>
     <article className="recipe-detail">
       <header className="detail-header"><div className="detail-cover" aria-hidden="true">🍲</div><div className="detail-intro"><p className="section-kicker">{version?.is_original ? 'Recette originale' : 'Variante familiale'}</p><h2>{recipe.title}</h2>{version?.version_name && <p className="detail-version-name">{version.version_name}</p>}{recipe.description && <p className="detail-description">{recipe.description}</p>}<div className="detail-meta">{recipe.original_author && <span>👵 {recipe.original_author}</span>}{recipe.origin_year && <span>📅 {recipe.origin_year}</span>}{recipe.servings && <span>👨‍👩‍👧‍👦 {recipe.servings} personnes</span>}{difficultyLabel && <span>◎ {difficultyLabel}</span>}</div></div></header>
+      <button
+  type="button"
+  className={`favorite-button ${isFavorite ? 'is-favorite' : ''}`}
+  onClick={toggleFavorite}
+  disabled={favoriteLoading}
+  aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+>
+  {isFavorite ? '♥' : '♡'}
+  <span>{isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}</span>
+</button>
       {error && <div className="form-error">{error}</div>}
       {switchingVersion && <div className="status-card">Chargement de la version sélectionnée…</div>}
       <div className="detail-content">
