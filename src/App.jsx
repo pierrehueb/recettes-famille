@@ -170,6 +170,7 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
       setVersion(selected.version)
       setIngredients(selected.ingredients)
       setSteps(selected.steps)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (loadError) { setError(loadError.message || 'Impossible de charger cette version.') }
     finally { setSwitchingVersion(false) }
   }
