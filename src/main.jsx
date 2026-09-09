@@ -5,6 +5,7 @@ import FamilyPage from './components/FamilyPage.jsx'
 import InvitationPage from './components/InvitationPage.jsx'
 import './index.css'
 import './components/RecipeVariants.css'
+import './components/FamilyPage.css'
 
 function Root() {
   const getMode = () => {
