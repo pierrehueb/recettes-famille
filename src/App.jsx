@@ -127,6 +127,8 @@ function MediaSection({ recipeId, user }) {
 function RecipeDetailPage({ recipeId, user, onBack }) {
   const [recipe, setRecipe] = useState(null)
   const [version, setVersion] = useState(null)
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [ingredients, setIngredients] = useState([])
   const [steps, setSteps] = useState([])
   const [loading, setLoading] = useState(true)
@@ -145,6 +147,60 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
     return { version: versionData, ingredients: ingredientsResult.data ?? [], steps: stepsResult.data ?? [] }
   }
 
+  useEffect(() => {
+  const loadFavorite = async () => {
+    if (!supabase || !user || !recipe?.id) return
+
+    const { data, error } = await supabase
+      .from('favorites')
+      .select('recipe_id')
+      .eq('user_id', user.id)
+      .eq('recipe_id', recipe.id)
+      .maybeSingle()
+
+    if (!error) {
+      setIsFavorite(!!data)
+    }
+  }
+
+  loadFavorite()
+}, [user?.id, recipe?.id])
+
+  const toggleFavorite = async () => {
+  if (!supabase || !user || !recipeId || favoriteLoading) return
+
+  setFavoriteLoading(true)
+
+  try {
+    if (isFavorite) {
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('recipe_id', recipeId)
+
+      if (error) throw error
+
+      setIsFavorite(false)
+    } else {
+      const { error } = await supabase
+        .from('favorites')
+        .insert({
+          user_id: user.id,
+          recipe_id: recipeId,
+        })
+
+      if (error) throw error
+
+      setIsFavorite(true)
+    }
+  } catch (error) {
+    console.error('Erreur favori:', error)
+  } finally {
+    setFavoriteLoading(false)
+  }
+}
+ 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
