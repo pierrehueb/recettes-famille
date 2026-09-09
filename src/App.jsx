@@ -151,9 +151,9 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
       try {
         const { data: recipeData, error: recipeError } = await supabase.from('recipes').select('id, title, description, original_author, origin_year, difficulty, servings, created_at').eq('id', recipeId).single()
         if (recipeError) throw recipeError
-        const { data: versionData, error: versionError } = await supabase.from('recipe_versions').select('id').eq('recipe_id', recipeId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        const { data: versionData, error: versionError } = await supabase.from('recipe_versions').select('id').eq('recipe_id', recipeId).eq('is_original', true).order('created_at', { ascending: true }).limit(1).maybeSingle()
         if (versionError) throw versionError
-        if (!versionData) throw new Error('Cette recette ne contient encore aucune version exploitable.')
+        if (!versionData) throw new Error('Cette recette ne contient pas encore de version originale.')
         const selected = await loadVersion(versionData.id)
         if (!cancelled) { setRecipe(recipeData); setVersion(selected.version); setIngredients(selected.ingredients); setSteps(selected.steps) }
       } catch (loadError) { if (!cancelled) setError(loadError.message || 'Impossible de charger cette recette.') }
