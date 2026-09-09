@@ -128,7 +128,21 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
   const [ingredients, setIngredients] = useState([])
   const [steps, setSteps] = useState([])
   const [loading, setLoading] = useState(true)
+  const [switchingVersion, setSwitchingVersion] = useState(false)
   const [error, setError] = useState('')
+
+  const loadVersion = async versionId => {
+    const { data: versionData, error: versionError } = await supabase.from('recipe_versions').select('id, version_name, notes, is_original, based_on_version_id, created_at, updated_at').eq('id', versionId).eq('recipe_id', recipeId).single()
+    if (versionError) throw versionError
+    const [ingredientsResult, stepsResult] = await Promise.all([
+      supabase.from('ingredients').select('id, position, quantity, unit, name, notes').eq('version_id', versionData.id).order('position', { ascending: true }),
+      supabase.from('preparation_steps').select('id, position, instruction, duration_minutes, temperature_celsius').eq('version_id', versionData.id).order('position', { ascending: true }),
+    ])
+    if (ingredientsResult.error) throw ingredientsResult.error
+    if (stepsResult.error) throw stepsResult.error
+    return { version: versionData, ingredients: ingredientsResult.data ?? [], steps: stepsResult.data ?? [] }
+  }
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -137,35 +151,45 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
       try {
         const { data: recipeData, error: recipeError } = await supabase.from('recipes').select('id, title, description, original_author, origin_year, difficulty, servings, created_at').eq('id', recipeId).single()
         if (recipeError) throw recipeError
-        const { data: versionData, error: versionError } = await supabase.from('recipe_versions').select('id, version_name, notes, is_original, based_on_version_id, created_at, updated_at').eq('recipe_id', recipeId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        const { data: versionData, error: versionError } = await supabase.from('recipe_versions').select('id').eq('recipe_id', recipeId).order('created_at', { ascending: false }).limit(1).maybeSingle()
         if (versionError) throw versionError
         if (!versionData) throw new Error('Cette recette ne contient encore aucune version exploitable.')
-        const [ingredientsResult, stepsResult] = await Promise.all([
-          supabase.from('ingredients').select('id, position, quantity, unit, name, notes').eq('version_id', versionData.id).order('position', { ascending: true }),
-          supabase.from('preparation_steps').select('id, position, instruction, duration_minutes, temperature_celsius').eq('version_id', versionData.id).order('position', { ascending: true }),
-        ])
-        if (ingredientsResult.error) throw ingredientsResult.error
-        if (stepsResult.error) throw stepsResult.error
-        if (!cancelled) { setRecipe(recipeData); setVersion(versionData); setIngredients(ingredientsResult.data ?? []); setSteps(stepsResult.data ?? []) }
+        const selected = await loadVersion(versionData.id)
+        if (!cancelled) { setRecipe(recipeData); setVersion(selected.version); setIngredients(selected.ingredients); setSteps(selected.steps) }
       } catch (loadError) { if (!cancelled) setError(loadError.message || 'Impossible de charger cette recette.') }
       finally { if (!cancelled) setLoading(false) }
     }
     load(); return () => { cancelled = true }
   }, [recipeId])
+
+  const handleSelectVersion = async versionId => {
+    if (!supabase || !versionId || versionId === version?.id) return
+    setSwitchingVersion(true); setError('')
+    try {
+      const selected = await loadVersion(versionId)
+      setVersion(selected.version)
+      setIngredients(selected.ingredients)
+      setSteps(selected.steps)
+    } catch (loadError) { setError(loadError.message || 'Impossible de charger cette version.') }
+    finally { setSwitchingVersion(false) }
+  }
+
   if (loading) return <section className="detail-section"><button type="button" className="secondary-button back-button" onClick={onBack}>← Retour aux recettes</button><div className="status-card">Chargement de la recette…</div></section>
-  if (error) return <section className="detail-section"><button type="button" className="secondary-button back-button" onClick={onBack}>← Retour aux recettes</button><div className="status-card error-card"><strong>Impossible de charger la recette.</strong><p>{error}</p></div></section>
+  if (error && !recipe) return <section className="detail-section"><button type="button" className="secondary-button back-button" onClick={onBack}>← Retour aux recettes</button><div className="status-card error-card"><strong>Impossible de charger la recette.</strong><p>{error}</p></div></section>
   if (!recipe) return null
   const difficultyLabel = { facile: 'Facile', moyenne: 'Moyenne', difficile: 'Difficile' }[recipe.difficulty] || recipe.difficulty
   return <section className="detail-section">
     <button type="button" className="secondary-button back-button" onClick={onBack}>← Retour aux recettes</button>
     <article className="recipe-detail">
-      <header className="detail-header"><div className="detail-cover" aria-hidden="true">🍲</div><div className="detail-intro"><p className="section-kicker">{version?.is_original ? 'Recette originale' : 'Recette familiale'}</p><h2>{recipe.title}</h2>{recipe.description && <p className="detail-description">{recipe.description}</p>}<div className="detail-meta">{recipe.original_author && <span>👵 {recipe.original_author}</span>}{recipe.origin_year && <span>📅 {recipe.origin_year}</span>}{recipe.servings && <span>👨‍👩‍👧‍👦 {recipe.servings} personnes</span>}{difficultyLabel && <span>◎ {difficultyLabel}</span>}</div></div></header>
+      <header className="detail-header"><div className="detail-cover" aria-hidden="true">🍲</div><div className="detail-intro"><p className="section-kicker">{version?.is_original ? 'Recette originale' : 'Variante familiale'}</p><h2>{recipe.title}</h2>{version?.version_name && <p className="detail-version-name">{version.version_name}</p>}{recipe.description && <p className="detail-description">{recipe.description}</p>}<div className="detail-meta">{recipe.original_author && <span>👵 {recipe.original_author}</span>}{recipe.origin_year && <span>📅 {recipe.origin_year}</span>}{recipe.servings && <span>👨‍👩‍👧‍👦 {recipe.servings} personnes</span>}{difficultyLabel && <span>◎ {difficultyLabel}</span>}</div></div></header>
+      {error && <div className="form-error">{error}</div>}
+      {switchingVersion && <div className="status-card">Chargement de la version sélectionnée…</div>}
       <div className="detail-content">
         <section className="detail-panel"><div className="detail-panel-heading"><p className="section-kicker">Les ingrédients</p><h3>Pour préparer cette recette</h3></div>{ingredients.length === 0 ? <p className="muted-text">Aucun ingrédient renseigné.</p> : <ul className="detail-ingredients">{ingredients.map(item => <li key={item.id}><span className="ingredient-amount">{item.quantity ?? ''}{item.quantity != null && item.unit ? ` ${item.unit}` : item.unit || ''}</span><span className="ingredient-name">{item.name}</span>{item.notes && <span className="ingredient-note">{item.notes}</span>}</li>)}</ul>}</section>
         <section className="detail-panel"><div className="detail-panel-heading"><p className="section-kicker">La préparation</p><h3>Étape par étape</h3></div>{steps.length === 0 ? <p className="muted-text">Aucune étape renseignée.</p> : <ol className="detail-steps">{steps.map((step, index) => <li key={step.id}><div className="detail-step-number">{index + 1}</div><div><p>{step.instruction}</p>{(step.duration_minutes != null || step.temperature_celsius != null) && <div className="step-meta">{step.duration_minutes != null && <span>⏱ {step.duration_minutes} min</span>}{step.temperature_celsius != null && <span>🌡 {step.temperature_celsius} °C</span>}</div>}</div></li>)}</ol>}</section>
       </div>
       <MediaSection recipeId={recipeId} user={user} />
-      <RecipeVariants recipeId={recipeId} user={user} currentVersionId={version.id} />
+      <RecipeVariants recipeId={recipeId} user={user} currentVersionId={version?.id} onSelectVersion={handleSelectVersion} />
     </article>
   </section>
 }
