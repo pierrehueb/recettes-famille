@@ -30,7 +30,6 @@ function RecipesPage({ recipes, loading, error, onRetry, onAdd, onOpen }) {
 function GrandmaPage({ recipes, loading, error, onRetry, onOpen }) {
   const [manuscripts, setManuscripts] = useState(new Set())
   const grandmaRecipes = recipes.filter(recipe => { const author = (recipe.original_author || '').toLowerCase(); return author.includes('mamie') || author.includes('grand-maman') || author.includes('grand maman') })
-
   useEffect(() => {
     let cancelled = false
     const loadManuscripts = async () => {
@@ -41,7 +40,6 @@ function GrandmaPage({ recipes, loading, error, onRetry, onOpen }) {
     loadManuscripts()
     return () => { cancelled = true }
   }, [recipes])
-
   return <section className="recipes-section"><div className="section-heading"><div><p className="section-kicker">Le patrimoine de Mamie</p><h3>Les recettes de Mamie</h3><p className="hero-text">Retrouvez les recettes dont Mamie est à l’origine, avec leur année, leur histoire et, lorsqu’il existe, leur manuscrit original.</p></div>{!loading && !error && <span className="recipe-count">{grandmaRecipes.length} recette{grandmaRecipes.length > 1 ? 's' : ''}</span>}</div>{loading && <div className="status-card">Chargement des recettes de Mamie…</div>}{!loading && error && <div className="status-card error-card"><strong>Impossible de charger les recettes.</strong><p>{error}</p><button type="button" className="secondary-button" onClick={onRetry}>Réessayer</button></div>}{!loading && !error && grandmaRecipes.length === 0 && <div className="status-card empty-card"><span className="empty-icon">👵</span><h4>Aucune recette de Mamie pour le moment</h4><p>Les recettes apparaîtront ici dès qu’elles seront renseignées avec « Mamie » ou « Grand-Maman » comme auteur d’origine.</p></div>}{!loading && !error && grandmaRecipes.length > 0 && <div className="recipe-grid">{grandmaRecipes.map(recipe => <button className="recipe-card" key={recipe.id} type="button" onClick={() => onOpen(recipe.id)}><div className="recipe-card-image" aria-hidden="true">👵</div><div className="recipe-card-body"><div className="recipe-card-meta"><span>{recipe.original_author}</span>{recipe.origin_year && <span>{recipe.origin_year}</span>}{manuscripts.has(recipe.id) && <span>✍️ Manuscrit conservé</span>}</div><h4>{recipe.title}</h4>{recipe.description && <p>{recipe.description}</p>}<div className="recipe-card-footer"><span>Recette originale</span>{recipe.servings && <span>👨‍👩‍👧‍👦 {recipe.servings} pers.</span>}</div></div></button>)}</div>}</section>
 }
 
