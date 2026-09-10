@@ -188,14 +188,16 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
         .insert({
           user_id: user.id,
           recipe_id: recipeId,
+          family_id: recipe.family_id,
         })
 
       if (error) throw error
 
       setIsFavorite(true)
     }
-  } catch (error) {
-    console.error('Erreur favori:', error)
+  } catch (favoriteError) {
+    console.error('Erreur favori:', favoriteError)
+    setError(favoriteError.message || 'Impossible de modifier les favoris.')
   } finally {
     setFavoriteLoading(false)
   }
@@ -207,7 +209,7 @@ function RecipeDetailPage({ recipeId, user, onBack }) {
       if (!supabase || !recipeId) return
       setLoading(true); setError('')
       try {
-        const { data: recipeData, error: recipeError } = await supabase.from('recipes').select('id, title, description, original_author, origin_year, difficulty, servings, created_at').eq('id', recipeId).single()
+        const { data: recipeData, error: recipeError } = await supabase.from('recipes').select('id, family_id, title, description, original_author, origin_year, difficulty, servings, created_at').eq('id', recipeId).single()
         if (recipeError) throw recipeError
         const { data: versionData, error: versionError } = await supabase.from('recipe_versions').select('id').eq('recipe_id', recipeId).eq('is_original', true).order('created_at', { ascending: true }).limit(1).maybeSingle()
         if (versionError) throw versionError
