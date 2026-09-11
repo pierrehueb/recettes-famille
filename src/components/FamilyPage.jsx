@@ -21,7 +21,6 @@ export default function FamilyPage() {
   const [inviteLink, setInviteLink] = useState('')
 
   const isAdmin = membership?.role === 'admin'
-  const canInvite = membership?.role === 'admin' || membership?.role === 'editor'
 
   const load = async currentUser => {
     if (!supabase || !currentUser) return
@@ -29,11 +28,10 @@ export default function FamilyPage() {
     try {
       const current = await getCurrentFamilyMembership(currentUser.id)
       setMembership(current)
-      const roleCanInvite = current.role === 'admin' || current.role === 'editor'
       const [familyResult, membersResult, invitationsResult] = await Promise.all([
         supabase.from('families').select('id, name, description').eq('id', current.family_id).single(),
         supabase.from('family_members').select('id, display_name, role, is_active, created_at, user_id').eq('family_id', current.family_id).order('created_at', { ascending: true }),
-        roleCanInvite ? supabase.from('family_invitations').select('id, email, role, expires_at, accepted_at, revoked_at, created_at').eq('family_id', current.family_id).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [], error: null }),
+        current.role === 'admin' ? supabase.from('family_invitations').select('id, email, role, expires_at, accepted_at, revoked_at, created_at').eq('family_id', current.family_id).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [], error: null }),
       ])
       if (familyResult.error) throw familyResult.error
       if (membersResult.error) throw membersResult.error
@@ -59,6 +57,7 @@ export default function FamilyPage() {
   const activeMembers = useMemo(() => members.filter(member => member.is_active), [members])
 
   const updateMember = async (member, changes) => {
+    if (!isAdmin || !membership) return
     setSavingId(member.id); setError(''); setMessage('')
     try {
       const { error: updateError } = await supabase.from('family_members').update(changes).eq('id', member.id).eq('family_id', membership.family_id)
@@ -71,7 +70,7 @@ export default function FamilyPage() {
 
   const createInvitation = async event => {
     event.preventDefault()
-    if (!inviteEmail.trim() || !membership) return
+    if (!isAdmin || !inviteEmail.trim() || !membership) return
     setInviteLoading(true); setError(''); setMessage(''); setInviteLink('')
     try {
       const { data, error: inviteError } = await supabase.rpc('create_family_invitation', { p_family_id: membership.family_id, p_email: inviteEmail.trim(), p_role: inviteRole, p_valid_days: 7 })
@@ -97,9 +96,9 @@ export default function FamilyPage() {
     <header className="family-header"><div><p className="section-kicker">Notre famille</p><h2>{family?.name || 'La famille'}</h2><p>{family?.description || 'Les personnes qui font vivre et transmettre ce livre de recettes.'}</p></div><div className="family-count"><strong>{activeMembers.length}</strong><span>membre{activeMembers.length > 1 ? 's' : ''}</span></div></header>
     {error && <div className="form-error">{error}</div>}{message && <div className="media-success">{message}</div>}
     <div className="family-grid">
-      <section className="family-card"><div className="family-card-heading"><div><p className="section-kicker">Les membres</p><h3>Qui fait partie de la famille ?</h3></div></div><div className="member-list">{members.map(member => <article className={`member-row ${member.is_active ? '' : 'inactive'}`} key={member.id}><div className="member-avatar">{(member.display_name || '?').charAt(0).toUpperCase()}</div><div className="member-main"><strong>{member.display_name || 'Sans nom'}</strong><span>{member.user_id === user.id ? 'Vous · ' : ''}{roleDescriptions[member.role]}</span></div><div className="member-controls"><select value={member.role} disabled={!isAdmin || savingId === member.id || member.user_id === user.id} onChange={e => updateMember(member, { role: e.target.value })} aria-label={`Rôle de ${member.display_name || 'ce membre'}`}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{member.is_active && isAdmin && member.user_id !== user.id && <button type="button" className="secondary-button small-button" disabled={savingId === member.id} onClick={() => updateMember(member, { is_active: false })}>{savingId === member.id ? '…' : 'Désactiver'}</button>}</div></article>)}</div></section>
-      {canInvite && <section className="family-card invite-card"><div className="family-card-heading"><div><p className="section-kicker">Transmission</p><h3>Inviter un membre</h3><p>Créez un lien privé valable 7 jours, puis envoyez-le à la personne concernée.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option>{isAdmin && <option value="admin">Administrateur — gestion complète</option>}</select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Création…' : 'Créer l’invitation'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours.</small></div>}</section>}
+      <section className="family-card"><div className="family-card-heading"><div><p className="section-kicker">Les membres</p><h3>Qui fait partie de la famille ?</h3></div></div><div className="member-list">{members.map(member => <article className={`member-row ${member.is_active ? '' : 'inactive'}`} key={member.id}><div className="member-avatar">{(member.display_name || '?').charAt(0).toUpperCase()}</div><div className="member-main"><strong>{member.display_name || 'Sans nom'}</strong><span>{member.user_id === user.id ? 'Vous · ' : ''}{roleDescriptions[member.role]}</span></div>{isAdmin && <div className="member-controls"><select value={member.role} disabled={savingId === member.id || member.user_id === user.id} onChange={e => updateMember(member, { role: e.target.value })} aria-label={`Rôle de ${member.display_name || 'ce membre'}`}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{member.is_active && member.user_id !== user.id && <button type="button" className="secondary-button small-button" disabled={savingId === member.id} onClick={() => updateMember(member, { is_active: false })}>{savingId === member.id ? '…' : 'Désactiver'}</button>}</div>}</article>)}</div></section>
+      {isAdmin && <section className="family-card invite-card"><div className="family-card-heading"><div><p className="section-kicker">Transmission</p><h3>Inviter un membre</h3><p>Créez un lien privé valable 7 jours, puis envoyez-le à la personne concernée.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Création…' : 'Créer l’invitation'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours.</small></div>}</section>}
     </div>
-    {canInvite && invitations.length > 0 && <section className="family-card invitation-history"><div className="family-card-heading"><div><p className="section-kicker">Invitations</p><h3>Historique récent</h3></div></div><div className="invitation-list">{invitations.map(invitation => <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : new Date(invitation.expires_at) < new Date() ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : new Date(invitation.expires_at) < new Date() ? 'Expirée' : 'En attente'}</span></div>)}</div></section>}
+    {isAdmin && invitations.length > 0 && <section className="family-card invitation-history"><div className="family-card-heading"><div><p className="section-kicker">Invitations</p><h3>Historique récent</h3></div></div><div className="invitation-list">{invitations.map(invitation => <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : new Date(invitation.expires_at) < new Date() ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : new Date(invitation.expires_at) < new Date() ? 'Expirée' : 'En attente'}</span></div>)}</div></section>}
   </section>
 }
