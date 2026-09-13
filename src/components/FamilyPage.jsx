@@ -70,16 +70,33 @@ export default function FamilyPage() {
 
   const createInvitation = async event => {
     event.preventDefault()
-    if (!isAdmin || !inviteEmail.trim() || !membership) return
+    if (!isAdmin || !inviteEmail.trim() || !membership || !supabase) return
     setInviteLoading(true); setError(''); setMessage(''); setInviteLink('')
     try {
-      const { data, error: inviteError } = await supabase.rpc('create_family_invitation', { p_family_id: membership.family_id, p_email: inviteEmail.trim(), p_role: inviteRole, p_valid_days: 7 })
+      const email = inviteEmail.trim()
+      const { data, error: inviteError } = await supabase.rpc('create_family_invitation', { p_family_id: membership.family_id, p_email: email, p_role: inviteRole, p_valid_days: 7 })
       if (inviteError) throw inviteError
       const invitation = Array.isArray(data) ? data[0] : data
       if (!invitation?.invitation_token) throw new Error('L’invitation a été créée mais son lien n’a pas pu être récupéré.')
       const link = `${window.location.origin}/?invite=${encodeURIComponent(invitation.invitation_token)}`
-      setInviteLink(link); setMessage(`Invitation créée pour ${inviteEmail.trim()}.`); setInviteEmail(''); await load(user)
-    } catch (inviteError) { setError(inviteError.message || 'Impossible de créer l’invitation.') }
+      setInviteLink(link)
+
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Votre session a expiré. Reconnectez-vous avant d’envoyer l’invitation.')
+
+      const response = await fetch('/api/send-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ invitationToken: invitation.invitation_token }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'L’invitation a été créée, mais l’email n’a pas pu être envoyé.')
+
+      setMessage(`Invitation envoyée par email à ${email}.`)
+      setInviteEmail('')
+      await load(user)
+    } catch (inviteError) { setError(inviteError.message || 'Impossible de créer ou d’envoyer l’invitation.') }
     finally { setInviteLoading(false) }
   }
 
@@ -97,7 +114,7 @@ export default function FamilyPage() {
     {error && <div className="form-error">{error}</div>}{message && <div className="media-success">{message}</div>}
     <div className="family-grid">
       <section className="family-card"><div className="family-card-heading"><div><p className="section-kicker">Les membres</p><h3>Qui fait partie de la famille ?</h3></div></div><div className="member-list">{members.map(member => <article className={`member-row ${member.is_active ? '' : 'inactive'}`} key={member.id}><div className="member-avatar">{(member.display_name || '?').charAt(0).toUpperCase()}</div><div className="member-main"><strong>{member.display_name || 'Sans nom'}</strong><span>{member.user_id === user.id ? 'Vous · ' : ''}{roleDescriptions[member.role]}</span></div>{isAdmin && <div className="member-controls"><select value={member.role} disabled={savingId === member.id || member.user_id === user.id} onChange={e => updateMember(member, { role: e.target.value })} aria-label={`Rôle de ${member.display_name || 'ce membre'}`}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{member.is_active && member.user_id !== user.id && <button type="button" className="secondary-button small-button" disabled={savingId === member.id} onClick={() => updateMember(member, { is_active: false })}>{savingId === member.id ? '…' : 'Désactiver'}</button>}</div>}</article>)}</div></section>
-      {isAdmin && <section className="family-card invite-card"><div className="family-card-heading"><div><p className="section-kicker">Transmission</p><h3>Inviter un membre</h3><p>Créez un lien privé valable 7 jours, puis envoyez-le à la personne concernée.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Création…' : 'Créer l’invitation'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours.</small></div>}</section>}
+      {isAdmin && <section className="family-card invite-card"><div className="family-card-heading"><div><p className="section-kicker">Transmission</p><h3>Inviter un membre</h3><p>Créez une invitation privée valable 7 jours. La personne recevra directement le lien par email.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Envoi…' : 'Inviter par email'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours. Vous pouvez aussi le copier pour l’envoyer manuellement.</small></div>}</section>}
     </div>
     {isAdmin && invitations.length > 0 && <section className="family-card invitation-history"><div className="family-card-heading"><div><p className="section-kicker">Invitations</p><h3>Historique récent</h3></div></div><div className="invitation-list">{invitations.map(invitation => <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : new Date(invitation.expires_at) < new Date() ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : new Date(invitation.expires_at) < new Date() ? 'Expirée' : 'En attente'}</span></div>)}</div></section>}
   </section>
