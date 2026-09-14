@@ -3,10 +3,7 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL
 
-const json = (body, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-})
+const json = (response, body, status = 200) => response.status(status).json(body)
 
 const escapeHtml = value => String(value)
   .replaceAll('&', '&amp;')
@@ -15,19 +12,18 @@ const escapeHtml = value => String(value)
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#039;')
 
-export default async function handler(request) {
-  if (request.method !== 'POST') return json({ error: 'Méthode non autorisée.' }, 405)
+export default async function handler(request, response) {
+  if (request.method !== 'POST') return json(response, { error: 'Méthode non autorisée.' }, 405)
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !RESEND_API_KEY || !RESEND_FROM_EMAIL) {
-    return json({ error: 'Le service d’envoi d’emails n’est pas encore configuré sur le serveur.' }, 500)
+    return json(response, { error: 'Le service d’envoi d’emails n’est pas encore configuré sur le serveur.' }, 500)
   }
 
-  const authorization = request.headers.get('authorization') || ''
-  if (!authorization.startsWith('Bearer ')) return json({ error: 'Authentification requise.' }, 401)
+  const authorization = request.headers.authorization || ''
+  if (!authorization.startsWith('Bearer ')) return json(response, { error: 'Authentification requise.' }, 401)
 
-  let body
-  try { body = await request.json() } catch { return json({ error: 'Requête invalide.' }, 400) }
+  const body = request.body || {}
   const token = typeof body?.invitationToken === 'string' ? body.invitationToken.trim() : ''
-  if (!token) return json({ error: 'Token d’invitation manquant.' }, 400)
+  if (!token) return json(response, { error: 'Token d’invitation manquant.' }, 400)
 
   try {
     const tokenBytes = new TextEncoder().encode(token)
@@ -46,24 +42,27 @@ export default async function handler(request) {
     invitationUrl.searchParams.set('limit', '1')
 
     const invitationResponse = await fetch(invitationUrl, { headers })
-    if (!invitationResponse.ok) return json({ error: 'Impossible de vérifier l’invitation.' }, 502)
+    if (!invitationResponse.ok) return json(response, { error: 'Impossible de vérifier l’invitation.' }, 502)
     const invitations = await invitationResponse.json()
     const invitation = invitations?.[0]
-    if (!invitation) return json({ error: 'Invitation introuvable ou non autorisée.' }, 404)
-    if (invitation.accepted_at) return json({ error: 'Cette invitation a déjà été acceptée.' }, 409)
-    if (invitation.revoked_at) return json({ error: 'Cette invitation a été révoquée.' }, 409)
-    if (new Date(invitation.expires_at) <= new Date()) return json({ error: 'Cette invitation a expiré.' }, 410)
+    if (!invitation) return json(response, { error: 'Invitation introuvable ou non autorisée.' }, 404)
+    if (invitation.accepted_at) return json(response, { error: 'Cette invitation a déjà été acceptée.' }, 409)
+    if (invitation.revoked_at) return json(response, { error: 'Cette invitation a été révoquée.' }, 409)
+    if (new Date(invitation.expires_at) <= new Date()) return json(response, { error: 'Cette invitation a expiré.' }, 410)
 
     const familyUrl = new URL('/rest/v1/families', SUPABASE_URL)
     familyUrl.searchParams.set('select', 'name')
     familyUrl.searchParams.set('id', `eq.${invitation.family_id}`)
     familyUrl.searchParams.set('limit', '1')
     const familyResponse = await fetch(familyUrl, { headers })
-    if (!familyResponse.ok) return json({ error: 'Impossible de récupérer la famille.' }, 502)
+    if (!familyResponse.ok) return json(response, { error: 'Impossible de récupérer la famille.' }, 502)
     const families = await familyResponse.json()
     const familyName = families?.[0]?.name || 'notre famille'
 
-    const inviteLink = `${new URL(request.url).origin}/?invite=${encodeURIComponent(token)}`
+    const protocol = request.headers['x-forwarded-proto'] || 'https'
+    const host = request.headers['x-forwarded-host'] || request.headers.host
+    if (!host) return json(response, { error: 'Impossible de déterminer l’adresse de l’application.' }, 500)
+    const inviteLink = `${protocol}://${host}/?invite=${encodeURIComponent(token)}`
     const roleLabel = ({ admin: 'Administrateur', editor: 'Éditeur', member: 'Membre', viewer: 'Lecteur' })[invitation.role] || 'Membre'
     const safeRole = escapeHtml(roleLabel)
     const safeFamilyName = escapeHtml(familyName)
@@ -86,12 +85,12 @@ export default async function handler(request) {
     if (!emailResponse.ok) {
       const resendError = await emailResponse.json().catch(() => null)
       console.error('Resend error', resendError)
-      return json({ error: 'Resend n’a pas pu envoyer l’email.' }, 502)
+      return json(response, { error: 'Resend n’a pas pu envoyer l’email.' }, 502)
     }
 
-    return json({ sent: true })
+    return json(response, { sent: true })
   } catch (error) {
     console.error('Invitation email error', error)
-    return json({ error: 'Erreur lors de l’envoi de l’invitation.' }, 500)
+    return json(response, { error: 'Erreur lors de l’envoi de l’invitation.' }, 500)
   }
 }
