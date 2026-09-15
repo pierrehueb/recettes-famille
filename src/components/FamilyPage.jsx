@@ -110,8 +110,10 @@ export default function FamilyPage() {
       if (revokeError) throw revokeError
       setMessage(`L’invitation pour ${invitation.email} a été révoquée.`)
       await load(user)
-    } catch (revokeError) { setError(revokeError.message || 'Impossible de révoquer cette invitation.') }
-    finally { setRevokingId(null) }
+    } catch (revokeError) {
+      console.error('Erreur révocation invitation:', revokeError)
+      setError(revokeError.message || revokeError.details || revokeError.hint || 'Impossible de révoquer cette invitation.')
+    } finally { setRevokingId(null) }
   }
 
   const copyInviteLink = async () => {
