@@ -239,3 +239,172 @@
     border-bottom: 0;
   }
 }
+
+/* Transmission familiale : résumé visuel compact dans l'en-tête de la recette. */
+.recipe-detail {
+  position: relative;
+}
+
+.recipe-detail .variants-section {
+  display: contents;
+}
+
+.recipe-detail .variants-header {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  z-index: 2;
+  display: block;
+  width: auto;
+  margin: 0;
+  pointer-events: none;
+}
+
+.recipe-detail .variants-header > div {
+  display: none;
+}
+
+.recipe-detail .variants-header .primary-button {
+  pointer-events: auto;
+  margin-left: auto;
+}
+
+.recipe-detail .transmission-tree {
+  position: absolute;
+  top: 76px;
+  right: 28px;
+  z-index: 2;
+  width: min(520px, 46%);
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.recipe-detail .tree-node {
+  margin: 0;
+}
+
+.recipe-detail .tree-children {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0 18px;
+  padding: 0;
+}
+
+.recipe-detail .tree-children > .tree-node {
+  position: relative;
+}
+
+.recipe-detail .tree-children > .tree-node::before {
+  content: '→';
+  position: absolute;
+  left: -15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9a6b42;
+  font-weight: 700;
+}
+
+.recipe-detail .tree-card {
+  display: block;
+  width: 100%;
+  min-width: 120px;
+  padding: 8px 11px;
+  border: 1px solid #ead6bd;
+  border-radius: 12px;
+  background: rgba(255, 253, 249, 0.94);
+  color: #5b4634;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(72, 45, 25, 0.07);
+}
+
+.recipe-detail .tree-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.recipe-detail .tree-generation {
+  color: #9a6b42;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.recipe-detail .tree-current {
+  font-size: 0.62rem;
+  color: #61734c;
+}
+
+.recipe-detail .tree-card strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 0.9rem;
+}
+
+.recipe-detail .tree-meta,
+.recipe-detail .tree-notes {
+  display: none;
+}
+
+.recipe-detail .tree-card.current {
+  border-color: #9a6b42;
+  background: #f8eee2;
+}
+
+.recipe-detail .variant-list-heading {
+  margin-top: 28px;
+  padding: 0 32px;
+}
+
+.recipe-detail .variant-timeline {
+  padding: 0 32px 32px;
+}
+
+@media (max-width: 900px) {
+  .recipe-detail .variants-header {
+    top: auto;
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .recipe-detail .variants-header .primary-button {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+
+  .recipe-detail .transmission-tree {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    margin: 0 20px 20px;
+    padding: 14px;
+    border: 1px solid #eadfd2;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .recipe-detail .tree-children {
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+
+  .recipe-detail .tree-card {
+    min-width: 135px;
+  }
+
+  .recipe-detail .variant-list-heading {
+    margin-top: 8px;
+    padding: 0 20px;
+  }
+
+  .recipe-detail .variant-timeline {
+    padding: 0 20px 20px;
+  }
+}
