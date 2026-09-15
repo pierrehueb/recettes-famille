@@ -13,6 +13,7 @@ export default function FamilyPage() {
   const [invitations, setInvitations] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
+  const [revokingId, setRevokingId] = useState(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
@@ -100,6 +101,19 @@ export default function FamilyPage() {
     finally { setInviteLoading(false) }
   }
 
+  const revokeInvitation = async invitation => {
+    if (!isAdmin || !supabase || invitation.accepted_at || invitation.revoked_at || new Date(invitation.expires_at) < new Date()) return
+    if (!window.confirm(`Révoquer l’invitation envoyée à ${invitation.email} ?`)) return
+    setRevokingId(invitation.id); setError(''); setMessage('')
+    try {
+      const { error: revokeError } = await supabase.rpc('revoke_family_invitation', { p_invitation_id: invitation.id })
+      if (revokeError) throw revokeError
+      setMessage(`L’invitation pour ${invitation.email} a été révoquée.`)
+      await load(user)
+    } catch (revokeError) { setError(revokeError.message || 'Impossible de révoquer cette invitation.') }
+    finally { setRevokingId(null) }
+  }
+
   const copyInviteLink = async () => {
     try { await navigator.clipboard.writeText(inviteLink); setMessage('Lien d’invitation copié.') }
     catch { setError('Impossible de copier automatiquement le lien. Vous pouvez le sélectionner et le copier manuellement.') }
@@ -116,6 +130,6 @@ export default function FamilyPage() {
       <section className="family-card"><div className="family-card-heading"><div><p className="section-kicker">Les membres</p><h3>Qui fait partie de la famille ?</h3></div></div><div className="member-list">{members.map(member => <article className={`member-row ${member.is_active ? '' : 'inactive'}`} key={member.id}><div className="member-avatar">{(member.display_name || '?').charAt(0).toUpperCase()}</div><div className="member-main"><strong>{member.display_name || 'Sans nom'}</strong><span>{member.user_id === user.id ? 'Vous · ' : ''}{roleDescriptions[member.role]}</span></div>{isAdmin && <div className="member-controls"><select value={member.role} disabled={savingId === member.id || member.user_id === user.id} onChange={e => updateMember(member, { role: e.target.value })} aria-label={`Rôle de ${member.display_name || 'ce membre'}`}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{member.is_active && member.user_id !== user.id && <button type="button" className="secondary-button small-button" disabled={savingId === member.id} onClick={() => updateMember(member, { is_active: false })}>{savingId === member.id ? '…' : 'Désactiver'}</button>}</div>}</article>)}</div></section>
       {isAdmin && <section className="family-card invite-card"><div className="family-card-heading"><div><p className="section-kicker">Transmission</p><h3>Inviter un membre</h3><p>Créez une invitation privée valable 7 jours. La personne recevra directement le lien par email.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Envoi…' : 'Inviter par email'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours. Vous pouvez aussi le copier pour l’envoyer manuellement.</small></div>}</section>}
     </div>
-    {isAdmin && invitations.length > 0 && <section className="family-card invitation-history"><div className="family-card-heading"><div><p className="section-kicker">Invitations</p><h3>Historique récent</h3></div></div><div className="invitation-list">{invitations.map(invitation => <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : new Date(invitation.expires_at) < new Date() ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : new Date(invitation.expires_at) < new Date() ? 'Expirée' : 'En attente'}</span></div>)}</div></section>}
+    {isAdmin && invitations.length > 0 && <section className="family-card invitation-history"><div className="family-card-heading"><div><p className="section-kicker">Invitations</p><h3>Historique récent</h3></div></div><div className="invitation-list">{invitations.map(invitation => { const isExpired = new Date(invitation.expires_at) < new Date(); const canRevoke = !invitation.accepted_at && !invitation.revoked_at && !isExpired; return <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><div className="invitation-actions"><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : isExpired ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : isExpired ? 'Expirée' : 'En attente'}</span>{canRevoke && <button type="button" className="secondary-button small-button" disabled={revokingId === invitation.id} onClick={() => revokeInvitation(invitation)}>{revokingId === invitation.id ? '…' : 'Révoquer'}</button>}</div></div> })}</div></section>}
   </section>
 }
