@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getCurrentFamilyMembership } from '../lib/family'
 import VersionComparison from './VersionComparison.jsx'
+import TransmissionSummary from './TransmissionSummary.jsx'
+import './TransmissionSummary.css'
 
 const blankIngredient = () => ({ quantity: '', unit: '', name: '', notes: '' })
 const blankStep = () => ({ instruction: '', duration_minutes: '', temperature_celsius: '' })
@@ -36,9 +38,7 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
       const { data: members, error: membersError } = await supabase.from('family_members').select('id, display_name').in('id', creatorIds)
       if (membersError) setError(membersError.message)
       else setCreatorNames((members ?? []).reduce((acc, member) => { acc[member.id] = member.display_name; return acc }, {}))
-    } else {
-      setCreatorNames({})
-    }
+    } else setCreatorNames({})
 
     const ids = rows.map(v => v.id)
     if (ids.length) {
@@ -56,12 +56,8 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
     let cancelled = false
     const loadMembership = async () => {
       if (!user?.id) return
-      try {
-        const membership = await getCurrentFamilyMembership(user.id)
-        if (!cancelled) setRole(membership.role)
-      } catch (membershipError) {
-        if (!cancelled) setError(membershipError.message || 'Impossible de vérifier vos droits.')
-      }
+      try { const membership = await getCurrentFamilyMembership(user.id); if (!cancelled) setRole(membership.role) }
+      catch (membershipError) { if (!cancelled) setError(membershipError.message || 'Impossible de vérifier vos droits.') }
     }
     loadMembership()
     return () => { cancelled = true }
@@ -78,14 +74,8 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
       if (versionError) throw versionError
       const baseIngredients = ingredients[currentVersionId] ?? []
       const baseSteps = steps[currentVersionId] ?? []
-      if (baseIngredients.length) {
-        const { error } = await supabase.from('ingredients').insert(baseIngredients.map(({ id, version_id, ...item }, index) => ({ ...item, version_id: version.id, position: index + 1 })))
-        if (error) throw error
-      }
-      if (baseSteps.length) {
-        const { error } = await supabase.from('preparation_steps').insert(baseSteps.map(({ id, version_id, ...item }, index) => ({ ...item, version_id: version.id, position: index + 1 })))
-        if (error) throw error
-      }
+      if (baseIngredients.length) { const { error } = await supabase.from('ingredients').insert(baseIngredients.map(({ id, version_id, ...item }, index) => ({ ...item, version_id: version.id, position: index + 1 }))); if (error) throw error }
+      if (baseSteps.length) { const { error } = await supabase.from('preparation_steps').insert(baseSteps.map(({ id, version_id, ...item }, index) => ({ ...item, version_id: version.id, position: index + 1 }))); if (error) throw error }
       setForm({ name: '', notes: '' }); setOpen(false); await load(); setEditingVersionId(version.id)
     } catch (saveError) { setError(saveError.message || 'Impossible de créer cette variante.') }
     finally { setSaving(false) }
@@ -114,54 +104,20 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
       if (deleteIngredientsError) throw deleteIngredientsError
       const { error: deleteStepsError } = await supabase.from('preparation_steps').delete().eq('version_id', version.id)
       if (deleteStepsError) throw deleteStepsError
-      if (cleanIngredients.length) {
-        const { error } = await supabase.from('ingredients').insert(cleanIngredients.map((item, index) => ({ version_id: version.id, position: index + 1, quantity: item.quantity === '' ? null : Number(item.quantity), unit: item.unit.trim() || null, name: item.name.trim(), notes: item.notes.trim() || null })))
-        if (error) throw error
-      }
-      if (cleanSteps.length) {
-        const { error } = await supabase.from('preparation_steps').insert(cleanSteps.map((item, index) => ({ version_id: version.id, position: index + 1, instruction: item.instruction.trim(), duration_minutes: item.duration_minutes === '' ? null : Number(item.duration_minutes), temperature_celsius: item.temperature_celsius === '' ? null : Number(item.temperature_celsius) })))
-        if (error) throw error
-      }
+      if (cleanIngredients.length) { const { error } = await supabase.from('ingredients').insert(cleanIngredients.map((item, index) => ({ version_id: version.id, position: index + 1, quantity: item.quantity === '' ? null : Number(item.quantity), unit: item.unit.trim() || null, name: item.name.trim(), notes: item.notes.trim() || null }))); if (error) throw error }
+      if (cleanSteps.length) { const { error } = await supabase.from('preparation_steps').insert(cleanSteps.map((item, index) => ({ version_id: version.id, position: index + 1, instruction: item.instruction.trim(), duration_minutes: item.duration_minutes === '' ? null : Number(item.duration_minutes), temperature_celsius: item.temperature_celsius === '' ? null : Number(item.temperature_celsius) }))); if (error) throw error }
       await load(); setEditingVersionId(null)
       if (onSelectVersion) onSelectVersion(version.id)
     } catch (saveError) { setError(saveError.message || 'Impossible d’enregistrer cette variante.') }
     finally { setSaving(false) }
   }
 
-  const childrenByParent = useMemo(() => versions.reduce((acc, version) => {
-    if (version.based_on_version_id) (acc[version.based_on_version_id] ||= []).push(version)
-    return acc
-  }, {}), [versions])
-
-  const treeRoots = useMemo(() => versions.filter(version => !version.based_on_version_id), [versions])
-
-  const renderTreeNode = (version, depth = 0) => {
-    const children = childrenByParent[version.id] ?? []
-    const isCurrent = version.id === currentVersionId
-    const isOriginal = version.is_original
-    const creatorName = creatorNames[version.created_by]
-    return <div className={`tree-node tree-depth-${Math.min(depth, 3)}`} key={version.id}>
-      <button type="button" className={`tree-card ${isCurrent ? 'current' : ''} ${isOriginal ? 'original' : ''}`} onClick={() => onSelectVersion?.(version.id)} disabled={isCurrent}>
-        <span className="tree-card-top"><span className="tree-generation">{isOriginal ? '👵 Original' : '🍴 Variante'}</span>{isCurrent && <span className="tree-current">✓ Affichée</span>}</span>
-        <strong>{version.version_name}</strong>
-        <span className="tree-meta"><span>{new Date(version.created_at).toLocaleDateString('fr-FR')}</span>{creatorName && <span>par {creatorName}</span>}</span>
-        {version.notes && <span className="tree-notes">{version.notes}</span>}
-      </button>
-      {children.length > 0 && <div className="tree-children">{children.map(child => renderTreeNode(child, depth + 1))}</div>}
-    </div>
-  }
-
   if (loading) return <section className="variants-section"><div className="status-card">Chargement des variantes familiales…</div></section>
   return <section className="variants-section">
-    <div className="variants-header"><div><p className="section-kicker">Transmission familiale</p><h3>L’arbre de transmission</h3><p>Chaque génération peut créer sa propre version. Les branches montrent de quelle recette chaque variante est issue.</p></div>{canEdit && <button type="button" className="primary-button small-button" onClick={() => setOpen(v => !v)}>＋ Nouvelle variante</button>}</div>
+    <TransmissionSummary versions={versions} creatorNames={creatorNames} currentVersionId={currentVersionId} onSelectVersion={onSelectVersion} />
+    <div className="variants-header"><div><p className="section-kicker">Détail des versions</p><h3>Historique des variantes</h3><p>Retrouvez les différentes versions de la recette et passez de l’une à l’autre.</p></div>{canEdit && <button type="button" className="primary-button small-button" onClick={() => setOpen(v => !v)}>＋ Nouvelle variante</button>}</div>
     {error && <div className="form-error">{error}</div>}
     {canEdit && open && <form className="variant-form" onSubmit={createVariant}><label>Nom de la variante<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex. Version de Maman – 2005" required /></label><label>Ce qui a changé<textarea rows="3" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Plus de beurre, cuisson différente…" /></label><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setOpen(false)}>Annuler</button><button className="primary-button" disabled={saving}>{saving ? 'Création…' : 'Créer la variante'}</button></div></form>}
-
-    <div className="transmission-tree">
-      {treeRoots.length === 0 ? <div className="tree-empty">Aucune version de cette recette n’est encore disponible.</div> : treeRoots.map(root => renderTreeNode(root))}
-    </div>
-
-    <div className="variant-list-heading"><div><p className="section-kicker">Détail des versions</p><h4>Historique des variantes</h4></div></div>
     <div className="variant-timeline">{versions.map((version, index) => {
       const isEditing = editingVersionId === version.id
       const isCurrent = version.id === currentVersionId
