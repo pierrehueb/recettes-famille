@@ -18,8 +18,7 @@ export default function TransmissionSummary({ versions = [], creatorNames = {}, 
     cursor = cursor.based_on_version_id ? byId.get(cursor.based_on_version_id) : null
   }
 
-  const displayed = path.length > 1 ? path : versions.slice(0, 4)
-  const hiddenCount = Math.max(0, versions.length - displayed.length)
+  const displayed = path.length === versions.length ? path : versions
 
   return createPortal(
     <div className="transmission-summary" aria-label="Transmission familiale">
@@ -39,7 +38,6 @@ export default function TransmissionSummary({ versions = [], creatorNames = {}, 
             </button>
           </span>
         })}
-        {hiddenCount > 0 && <span className="transmission-summary-more">+{hiddenCount}</span>}
       </div>
     </div>,
     target,
