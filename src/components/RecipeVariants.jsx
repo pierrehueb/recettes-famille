@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getCurrentFamilyMembership } from '../lib/family'
 import VersionComparison from './VersionComparison.jsx'
+import RecipeHistory from './RecipeHistory.jsx'
 
 const blankIngredient = () => ({ quantity: '', unit: '', name: '', notes: '' })
 const blankStep = () => ({ instruction: '', duration_minutes: '', temperature_celsius: '' })
@@ -182,6 +183,7 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
         </div>
       </article>
     })}</div>
+    <RecipeHistory versions={versions} creatorNames={creatorNames} />
     <div className="variant-comparison-action"><VersionComparison versions={versions} ingredients={ingredients} steps={steps} creatorNames={creatorNames} currentVersionId={currentVersionId} /></div>
   </section>
 }
