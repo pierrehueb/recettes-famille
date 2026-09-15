@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import './VersionComparison.css'
 
 const normalize = value => String(value ?? '').trim().toLowerCase()
 
