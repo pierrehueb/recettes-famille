@@ -19,8 +19,10 @@ export default function InvitationPage({ token, onBack }) {
     if (!supabase || !user || !token) return
     setWorking(true); setError('')
     const { error: acceptError } = await supabase.rpc('accept_family_invitation', { p_token: token })
-    if (acceptError) setError(acceptError.message || 'Impossible d’accepter cette invitation.')
-    else setAccepted(true)
+    if (acceptError) {
+      console.error('Erreur acceptation invitation:', acceptError)
+      setError(acceptError.message || 'Impossible d’accepter cette invitation.')
+    } else setAccepted(true)
     setWorking(false)
   }
 
@@ -30,7 +32,12 @@ export default function InvitationPage({ token, onBack }) {
     setWorking(true); setError('')
     const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
     if (signInError) setError(signInError.message || 'Impossible de vous connecter.')
-    else { setUser(data.user); const { error: acceptError } = await supabase.rpc('accept_family_invitation', { p_token: token }); if (acceptError) setError(acceptError.message || 'Impossible d’accepter cette invitation.'); else setAccepted(true) }
+    else {
+      setUser(data.user)
+      const { error: acceptError } = await supabase.rpc('accept_family_invitation', { p_token: token })
+      if (acceptError) { console.error('Erreur acceptation invitation:', acceptError); setError(acceptError.message || 'Impossible d’accepter cette invitation.') }
+      else setAccepted(true)
+    }
     setWorking(false)
   }
 
