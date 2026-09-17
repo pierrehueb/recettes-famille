@@ -2,11 +2,143 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 function CommentsSection({ recipeId, user }) {
-  const [familyId, setFamilyId] = useState(null); const [membership, setMembership] = useState(null); const [comments, setComments] = useState([]); const [text, setText] = useState(''); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
-  const loadComments = async () => { if (!supabase || !recipeId || !user) return; setLoading(true); setError(''); try { const { data: currentMembership, error: membershipError } = await supabase.from('family_members').select('id, family_id, display_name, role').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle(); if (membershipError || !currentMembership) throw new Error(membershipError?.message || 'Aucune famille active trouvée.'); setMembership(currentMembership); setFamilyId(currentMembership.family_id); const { data, error: commentsError } = await supabase.from('recipe_comments').select('id, content, created_by, created_at, updated_at').eq('recipe_id', recipeId).order('created_at', { ascending: true }); if (commentsError) throw commentsError; const rows = data ?? []; const creatorIds = [...new Set(rows.map(item => item.created_by).filter(Boolean))]; let creatorMap = new Map(); if (creatorIds.length) { const { data: members, error: membersError } = await supabase.from('family_members').select('id, display_name').in('id', creatorIds); if (membersError) throw membersError; creatorMap = new Map((members ?? []).map(member => [member.id, member.display_name])) } setComments(rows.map(item => ({ ...item, creatorName: creatorMap.get(item.created_by) || 'Membre de la famille' }))) } catch (loadError) { setError(loadError.message || 'Impossible de charger les souvenirs.') } finally { setLoading(false) } }
+  const [familyId, setFamilyId] = useState(null)
+  const [membership, setMembership] = useState(null)
+  const [comments, setComments] = useState([])
+  const [text, setText] = useState('')
+  const [photo, setPhoto] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [selectedPhoto, setSelectedPhoto] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editingText, setEditingText] = useState('')
+  const [busyCommentId, setBusyCommentId] = useState(null)
+
+  const loadComments = async () => {
+    if (!supabase || !recipeId || !user) return
+    setLoading(true)
+    setError('')
+    try {
+      const { data: currentMembership, error: membershipError } = await supabase
+        .from('family_members')
+        .select('id, family_id, display_name, role')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle()
+      if (membershipError || !currentMembership) throw new Error(membershipError?.message || 'Aucune famille active trouvée.')
+      setMembership(currentMembership)
+      setFamilyId(currentMembership.family_id)
+
+      const { data, error: commentsError } = await supabase
+        .from('recipe_comments')
+        .select('id, content, created_by, created_at, updated_at')
+        .eq('recipe_id', recipeId)
+        .order('created_at', { ascending: true })
+      if (commentsError) throw commentsError
+
+      const rows = data ?? []
+      const creatorIds = [...new Set(rows.map(item => item.created_by).filter(Boolean))]
+      let creatorMap = new Map()
+      if (creatorIds.length) {
+        const { data: members, error: membersError } = await supabase.from('family_members').select('id, display_name').in('id', creatorIds)
+        if (membersError) throw membersError
+        creatorMap = new Map((members ?? []).map(member => [member.id, member.display_name]))
+      }
+
+      const commentIds = rows.map(item => item.id)
+      let mediaMap = new Map()
+      if (commentIds.length) {
+        const { data: media, error: mediaError } = await supabase
+          .from('media')
+          .select('id, comment_id, storage_path, mime_type, original_filename, caption')
+          .in('comment_id', commentIds)
+          .eq('media_type', 'photo')
+        if (mediaError) throw mediaError
+        const signedMedia = await Promise.all((media ?? []).map(async item => {
+          const { data: signedData } = await supabase.storage.from('family-media').createSignedUrl(item.storage_path, 3600)
+          return { ...item, signedUrl: signedData?.signedUrl || '' }
+        }))
+        mediaMap = new Map(signedMedia.map(item => [item.comment_id, item]))
+      }
+
+      setComments(rows.map(item => ({ ...item, creatorName: creatorMap.get(item.created_by) || 'Membre de la famille', photo: mediaMap.get(item.id) || null })))
+    } catch (loadError) { setError(loadError.message || 'Impossible de charger les souvenirs.') } finally { setLoading(false) }
+  }
+
   useEffect(() => { loadComments() }, [recipeId, user?.id])
-  const addComment = async event => { event.preventDefault(); const content = text.trim(); if (!content || !supabase || !membership || membership.role === 'viewer') return; setSaving(true); setError(''); try { const { error: insertError } = await supabase.from('recipe_comments').insert({ family_id: familyId, recipe_id: recipeId, content, created_by: membership.id }); if (insertError) throw insertError; setText(''); await loadComments() } catch (saveError) { setError(saveError.message || 'Impossible d’ajouter ce souvenir.') } finally { setSaving(false) } }
-  return <section className="comments-section"><div className="comments-heading"><p className="section-kicker">Commentaires & souvenirs</p></div>{error && <div className="form-error comments-message">{error}</div>}{loading ? <div className="status-card">Chargement des souvenirs…</div> : <><div className="comments-list">{comments.length === 0 ? <div className="comments-empty">Aucun souvenir n’a encore été partagé. Soyez le premier à raconter l’histoire de cette recette.</div> : comments.map(comment => <article className="comment-card" key={comment.id}><div className="comment-card-header"><strong>{comment.creatorName}</strong><time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</time></div><p>{comment.content}</p></article>)}</div>{membership?.role === 'viewer' ? <div className="comments-empty">Votre rôle est « lecture seule » : vous pouvez consulter les souvenirs, mais pas en ajouter.</div> : <form className="comment-form" onSubmit={addComment}><label>Votre souvenir<textarea value={text} onChange={e => setText(e.target.value)} rows="4" maxLength="2000" placeholder="Ex. Mamie ajoutait toujours une cuillère de…" /></label><div className="comment-form-footer"><span>{text.length}/2000</span><button type="submit" className="primary-button" disabled={saving || !text.trim()}>{saving ? 'Enregistrement…' : 'Partager le souvenir'}</button></div></form>}</>}</section>
+  useEffect(() => {
+    if (!selectedPhoto) return undefined
+    const onKeyDown = event => { if (event.key === 'Escape') setSelectedPhoto(null) }
+    document.addEventListener('keydown', onKeyDown); document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = '' }
+  }, [selectedPhoto])
+
+  const canManageComment = comment => membership && (comment.created_by === membership.id || membership.role === 'admin')
+
+  const addComment = async event => {
+    event.preventDefault(); const content = text.trim(); if (!content || !supabase || !membership || membership.role === 'viewer') return
+    setSaving(true); setError('')
+    try {
+      const { data: createdComment, error: insertError } = await supabase.from('recipe_comments').insert({ family_id: familyId, recipe_id: recipeId, content, created_by: membership.id }).select('id').single()
+      if (insertError) throw insertError
+      if (photo) {
+        const extension = photo.name.includes('.') ? `.${photo.name.split('.').pop().toLowerCase()}` : ''; const id = crypto.randomUUID(); const path = `${familyId}/recipes/${recipeId}/comments/${createdComment.id}/${id}${extension}`
+        const { error: uploadError } = await supabase.storage.from('family-media').upload(path, photo, { contentType: photo.type || undefined, upsert: false }); if (uploadError) throw uploadError
+        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, comment_id: createdComment.id, storage_path: path, media_type: 'photo', mime_type: photo.type || null, original_filename: photo.name, position: 0, created_by: membership.id })
+        if (mediaError) { await supabase.storage.from('family-media').remove([path]); throw mediaError }
+      }
+      setText(''); setPhoto(null); await loadComments()
+    } catch (saveError) { setError(saveError.message || 'Impossible d’ajouter ce souvenir.') } finally { setSaving(false) }
+  }
+
+  const startEditing = comment => { setEditingId(comment.id); setEditingText(comment.content); setError('') }
+  const cancelEditing = () => { setEditingId(null); setEditingText('') }
+  const saveEdit = async comment => {
+    const content = editingText.trim(); if (!content || !canManageComment(comment)) return
+    setBusyCommentId(comment.id); setError('')
+    try { const { error: updateError } = await supabase.from('recipe_comments').update({ content, updated_at: new Date().toISOString() }).eq('id', comment.id); if (updateError) throw updateError; cancelEditing(); await loadComments() }
+    catch (updateError) { setError(updateError.message || 'Impossible de modifier ce souvenir.') } finally { setBusyCommentId(null) }
+  }
+  const deleteComment = async comment => {
+    if (!canManageComment(comment) || !window.confirm('Supprimer définitivement ce souvenir ?')) return
+    setBusyCommentId(comment.id); setError('')
+    try {
+      if (comment.photo?.storage_path) { const { error: storageError } = await supabase.storage.from('family-media').remove([comment.photo.storage_path]); if (storageError) throw storageError; const { error: mediaError } = await supabase.from('media').delete().eq('id', comment.photo.id); if (mediaError) throw mediaError }
+      const { error: deleteError } = await supabase.from('recipe_comments').delete().eq('id', comment.id); if (deleteError) throw deleteError
+      if (selectedPhoto?.comment_id === comment.id) setSelectedPhoto(null); if (editingId === comment.id) cancelEditing(); await loadComments()
+    } catch (deleteError) { setError(deleteError.message || 'Impossible de supprimer ce souvenir.') } finally { setBusyCommentId(null) }
+  }
+
+  const actionStyle = { width: 34, height: 34, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 0, borderRadius: 8, background: 'transparent', color: '#756a61', cursor: 'pointer' }
+
+  return <section className="comments-section">
+    <div className="comments-heading"><p className="section-kicker">Commentaires & souvenirs</p></div>
+    {error && <div className="form-error comments-message">{error}</div>}
+    {loading ? <div className="status-card">Chargement des souvenirs…</div> : <>
+      <div className="comments-list">
+        {comments.length === 0 ? <div className="comments-empty">Aucun souvenir n’a encore été partagé. Soyez le premier à raconter l’histoire de cette recette.</div> : comments.map(comment => {
+          const isEditing = editingId === comment.id; const canManage = canManageComment(comment); const isBusy = busyCommentId === comment.id
+          return <article className="comment-card" key={comment.id} style={{ position: 'relative' }}>
+            {canManage && !isEditing && <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 2 }}>
+              <button type="button" style={actionStyle} onClick={() => startEditing(comment)} disabled={isBusy} aria-label="Modifier le souvenir" title="Modifier">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="m13.5 6.5 4 4" stroke="currentColor" strokeWidth="1.7"/></svg>
+              </button>
+              <button type="button" style={actionStyle} onClick={() => deleteComment(comment)} disabled={isBusy} aria-label="Supprimer le souvenir" title="Supprimer">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </div>}
+            <div className="comment-card-header" style={canManage && !isEditing ? { paddingRight: 72 } : undefined}><strong>{comment.creatorName}</strong><time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</time></div>
+            {isEditing ? <><textarea value={editingText} onChange={e => setEditingText(e.target.value)} rows="4" maxLength="2000" disabled={isBusy} style={{ width: '100%', marginTop: 12 }} /><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}><button type="button" className="secondary-button small-button" onClick={cancelEditing} disabled={isBusy}>Annuler</button><button type="button" className="primary-button" onClick={() => saveEdit(comment)} disabled={isBusy || !editingText.trim()}>{isBusy ? 'Enregistrement…' : 'Enregistrer'}</button></div></> : <p>{comment.content}</p>}
+            {comment.photo?.signedUrl && <button type="button" onClick={() => setSelectedPhoto(comment.photo)} aria-label="Ouvrir la photo du souvenir" style={{ display: 'block', width: '100%', maxWidth: 420, marginTop: 14, padding: 0, border: 0, borderRadius: 14, overflow: 'hidden', background: '#f3e7d8' }}><img src={comment.photo.signedUrl} alt={comment.photo.caption || comment.photo.original_filename || 'Photo du souvenir'} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} /></button>}
+          </article>
+        })}
+      </div>
+      {membership?.role === 'viewer' ? <div className="comments-empty">Votre rôle est « lecture seule » : vous pouvez consulter les souvenirs, mais pas en ajouter.</div> : <form className="comment-form" onSubmit={addComment}><label>Votre souvenir<textarea value={text} onChange={e => setText(e.target.value)} rows="4" maxLength="2000" placeholder="Ex. Mamie ajoutait toujours une cuillère de…" /></label><div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}><label className="secondary-button upload-button">📷 {photo ? 'Changer la photo' : 'Ajouter une photo'}<input type="file" accept="image/*" disabled={saving} onChange={e => setPhoto(e.target.files?.[0] || null)} /></label>{photo && <><span style={{ color: '#756a61', fontSize: '.85rem' }}>{photo.name}</span><button type="button" className="secondary-button small-button" onClick={() => setPhoto(null)} disabled={saving}>Retirer</button></>}</div><div className="comment-form-footer"><span>{text.length}/2000</span><button type="submit" className="primary-button" disabled={saving || !text.trim()}>{saving ? 'Enregistrement…' : 'Partager le souvenir'}</button></div></form>}
+    </>}
+    {selectedPhoto?.signedUrl && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo du souvenir agrandie" onClick={() => setSelectedPhoto(null)}><button type="button" className="photo-lightbox-close" onClick={() => setSelectedPhoto(null)} aria-label="Fermer">×</button><div className="photo-lightbox-content" onClick={event => event.stopPropagation()}><img src={selectedPhoto.signedUrl} alt={selectedPhoto.caption || selectedPhoto.original_filename || 'Photo du souvenir'} /></div></div>}
+  </section>
 }
 
 export default CommentsSection
