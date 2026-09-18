@@ -13,6 +13,8 @@ function CommentsSection({ recipeId, user }) {
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editingText, setEditingText] = useState('')
+  const [editingPhoto, setEditingPhoto] = useState(null)
+  const [removeEditingPhoto, setRemoveEditingPhoto] = useState(false)
   const [busyCommentId, setBusyCommentId] = useState(null)
 
   const loadComments = async () => {
@@ -93,13 +95,36 @@ function CommentsSection({ recipeId, user }) {
     } catch (saveError) { setError(saveError.message || 'Impossible d’ajouter ce souvenir.') } finally { setSaving(false) }
   }
 
-  const startEditing = comment => { setEditingId(comment.id); setEditingText(comment.content); setError('') }
-  const cancelEditing = () => { setEditingId(null); setEditingText('') }
+  const startEditing = comment => { setEditingId(comment.id); setEditingText(comment.content); setEditingPhoto(null); setRemoveEditingPhoto(false); setError('') }
+  const cancelEditing = () => { setEditingId(null); setEditingText(''); setEditingPhoto(null); setRemoveEditingPhoto(false) }
   const saveEdit = async comment => {
     const content = editingText.trim(); if (!content || !canManageComment(comment)) return
     setBusyCommentId(comment.id); setError('')
-    try { const { error: updateError } = await supabase.from('recipe_comments').update({ content, updated_at: new Date().toISOString() }).eq('id', comment.id); if (updateError) throw updateError; cancelEditing(); await loadComments() }
-    catch (updateError) { setError(updateError.message || 'Impossible de modifier ce souvenir.') } finally { setBusyCommentId(null) }
+    let newStoragePath = null
+    try {
+      const { error: updateError } = await supabase.from('recipe_comments').update({ content, updated_at: new Date().toISOString() }).eq('id', comment.id)
+      if (updateError) throw updateError
+
+      if (editingPhoto) {
+        const extension = editingPhoto.name.includes('.') ? `.${editingPhoto.name.split('.').pop().toLowerCase()}` : ''
+        newStoragePath = `${familyId}/recipes/${recipeId}/comments/${comment.id}/${crypto.randomUUID()}${extension}`
+        const { error: uploadError } = await supabase.storage.from('family-media').upload(newStoragePath, editingPhoto, { contentType: editingPhoto.type || undefined, upsert: false })
+        if (uploadError) throw uploadError
+        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, comment_id: comment.id, storage_path: newStoragePath, media_type: 'photo', mime_type: editingPhoto.type || null, original_filename: editingPhoto.name, position: 0, created_by: membership.id })
+        if (mediaError) { await supabase.storage.from('family-media').remove([newStoragePath]); throw mediaError }
+      }
+
+      if ((removeEditingPhoto || editingPhoto) && comment.photo?.storage_path) {
+        const { error: storageError } = await supabase.storage.from('family-media').remove([comment.photo.storage_path])
+        if (storageError) throw storageError
+        const { error: mediaError } = await supabase.from('media').delete().eq('id', comment.photo.id)
+        if (mediaError) throw mediaError
+      }
+
+      cancelEditing(); await loadComments()
+    } catch (updateError) {
+      setError(updateError.message || 'Impossible de modifier ce souvenir.')
+    } finally { setBusyCommentId(null) }
   }
   const deleteComment = async comment => {
     if (!canManageComment(comment) || !window.confirm('Supprimer définitivement ce souvenir ?')) return
@@ -130,8 +155,8 @@ function CommentsSection({ recipeId, user }) {
               </button>
             </div>}
             <div className="comment-card-header" style={canManage && !isEditing ? { paddingRight: 72 } : undefined}><strong>{comment.creatorName}</strong><time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</time></div>
-            {isEditing ? <><textarea value={editingText} onChange={e => setEditingText(e.target.value)} rows="4" maxLength="2000" disabled={isBusy} style={{ width: '100%', marginTop: 12 }} /><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}><button type="button" className="secondary-button small-button" onClick={cancelEditing} disabled={isBusy}>Annuler</button><button type="button" className="primary-button" onClick={() => saveEdit(comment)} disabled={isBusy || !editingText.trim()}>{isBusy ? 'Enregistrement…' : 'Enregistrer'}</button></div></> : <p>{comment.content}</p>}
-            {comment.photo?.signedUrl && <button type="button" onClick={() => setSelectedPhoto(comment.photo)} aria-label="Ouvrir la photo du souvenir" style={{ display: 'block', width: '100%', maxWidth: 420, marginTop: 14, padding: 0, border: 0, borderRadius: 14, overflow: 'hidden', background: '#f3e7d8' }}><img src={comment.photo.signedUrl} alt={comment.photo.caption || comment.photo.original_filename || 'Photo du souvenir'} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} /></button>}
+            {isEditing ? <><textarea value={editingText} onChange={e => setEditingText(e.target.value)} rows="4" maxLength="2000" disabled={isBusy} style={{ width: '100%', marginTop: 12 }} /><div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 }}><label className="secondary-button upload-button">📷 {editingPhoto ? 'Changer la nouvelle photo' : comment.photo && !removeEditingPhoto ? 'Remplacer la photo' : 'Ajouter une photo'}<input type="file" accept="image/*" disabled={isBusy} onChange={e => { setEditingPhoto(e.target.files?.[0] || null); if (e.target.files?.[0]) setRemoveEditingPhoto(false) }} /></label>{editingPhoto && <><span style={{ color: '#756a61', fontSize: '.85rem' }}>{editingPhoto.name}</span><button type="button" className="secondary-button small-button" onClick={() => setEditingPhoto(null)} disabled={isBusy}>Annuler la photo</button></>}{comment.photo && !editingPhoto && <button type="button" className="secondary-button small-button" onClick={() => setRemoveEditingPhoto(value => !value)} disabled={isBusy}>{removeEditingPhoto ? 'Conserver la photo' : 'Supprimer la photo'}</button>}</div><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}><button type="button" className="secondary-button small-button" onClick={cancelEditing} disabled={isBusy}>Annuler</button><button type="button" className="primary-button" onClick={() => saveEdit(comment)} disabled={isBusy || !editingText.trim()}>{isBusy ? 'Enregistrement…' : 'Enregistrer'}</button></div></> : <p>{comment.content}</p>}
+            {comment.photo?.signedUrl && (!isEditing || (!removeEditingPhoto && !editingPhoto)) && <button type="button" onClick={() => setSelectedPhoto(comment.photo)} aria-label="Ouvrir la photo du souvenir" style={{ display: 'block', width: '100%', maxWidth: 420, marginTop: 14, padding: 0, border: 0, borderRadius: 14, overflow: 'hidden', background: '#f3e7d8' }}><img src={comment.photo.signedUrl} alt={comment.photo.caption || comment.photo.original_filename || 'Photo du souvenir'} style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover' }} /></button>}
           </article>
         })}
       </div>
