@@ -8,7 +8,7 @@ import './TransmissionSummary.css'
 const blankIngredient = () => ({ quantity: '', unit: '', name: '', notes: '' })
 const blankStep = () => ({ instruction: '', duration_minutes: '', temperature_celsius: '' })
 
-export default function RecipeVariants({ recipeId, user, currentVersionId, onSelectVersion }) {
+export default function RecipeVariants({ recipeId, user, currentVersionId, onSelectVersion, requestedEditingVersionId = null, onEditingRequestHandled }) {
   const [versions, setVersions] = useState([])
   const [creatorNames, setCreatorNames] = useState({})
   const [ingredients, setIngredients] = useState({})
@@ -107,6 +107,15 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
     setDraftSteps((steps[version.id] ?? []).map(({ instruction, duration_minutes, temperature_celsius }) => ({ instruction: instruction ?? '', duration_minutes: duration_minutes ?? '', temperature_celsius: temperature_celsius ?? '' })))
   }
 
+  useEffect(() => {
+    if (!requestedEditingVersionId || loading || !canEdit) return
+    const requestedVersion = versions.find(item => item.id === requestedEditingVersionId)
+    if (!requestedVersion || requestedVersion.is_original) return
+    startEditing(requestedVersion)
+    onEditingRequestHandled?.()
+    window.setTimeout(() => document.getElementById(\`variant-\${requestedVersion.id}\`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+  }, [requestedEditingVersionId, loading, canEdit, versions])
+
   const moveItem = (items, setItems, index, direction) => {
     const target = index + direction
     if (target < 0 || target >= items.length) return
@@ -144,7 +153,7 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
       const creatorName = creatorNames[version.created_by]
       const generationLabel = version.is_original ? '👵 Original' : `Variante ${index}`
       const changes = getChanges(version)
-      return <article className={`variant-card ${isCurrent ? 'current' : ''}`} key={version.id}>
+      return <article id={`variant-${version.id}`} className={`variant-card ${isCurrent ? 'current' : ''}`} key={version.id}>
         <div className="variant-dot" />
         <div className="variant-body">
           <div className="variant-top"><div className="variant-labels"><span className="variant-generation">{generationLabel}</span>{isCurrent && <span className="variant-current-badge">✓ Version affichée</span>}</div><span className="variant-date">{new Date(version.created_at).toLocaleDateString('fr-FR')}</span></div>
