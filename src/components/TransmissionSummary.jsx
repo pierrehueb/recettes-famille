@@ -34,7 +34,7 @@ export default function TransmissionSummary({ versions = [], creatorNames = {}, 
             {index > 0 && <span className="transmission-summary-arrow" aria-hidden="true">→</span>}
             <button type="button" className={`transmission-summary-node ${active ? 'active' : ''}`} onClick={() => onSelectVersion?.(version.id)} disabled={active} title={version.version_name}>
               <span aria-hidden="true">{version.is_original ? '👵' : '🍴'}</span>
-              <span>{creator || version.version_name}</span>
+              <span>{version.is_original ? (version.version_name || 'Recette originale') : (version.version_name || creator || `Variante ${index}`)}</span>
             </button>
           </span>
         })}
