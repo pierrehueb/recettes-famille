@@ -21,9 +21,9 @@ export default function TransmissionSummary({ versions = [], creatorNames = {}, 
   const displayed = path.length === versions.length ? path : versions
 
   return createPortal(
-    <div className="transmission-summary" aria-label="Transmission familiale">
+    <div className="transmission-summary" aria-label="Variantes de la recette">
       <div className="transmission-summary-heading">
-        <span className="transmission-summary-label">Transmission familiale</span>
+        <span className="transmission-summary-label">Variantes de la recette</span>
         <span className="transmission-summary-count">{versions.length} version{versions.length > 1 ? 's' : ''}</span>
       </div>
       <div className="transmission-summary-path">
