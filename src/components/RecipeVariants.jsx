@@ -25,18 +25,34 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
 
   const canEdit = role === 'admin' || role === 'editor'
   const normalizeValue = value => String(value ?? '').trim().toLocaleLowerCase('fr')
+  const formatIngredientAmount = item => [item.quantity, item.unit].filter(value => value !== null && value !== undefined && String(value).trim() !== '').join(' ') || 'sans quantité'
   const getChanges = version => {
     if (version.is_original || !version.based_on_version_id) return []
     const baseIngredients = ingredients[version.based_on_version_id] ?? []
     const currentIngredients = ingredients[version.id] ?? []
     const baseSteps = steps[version.based_on_version_id] ?? []
     const currentSteps = steps[version.id] ?? []
-    const ingredientKey = item => [normalizeValue(item.name), normalizeValue(item.quantity), normalizeValue(item.unit), normalizeValue(item.notes)].join('|')
-    const baseKeys = new Set(baseIngredients.map(ingredientKey))
-    const currentKeys = new Set(currentIngredients.map(ingredientKey))
-    const added = currentIngredients.filter(item => !baseKeys.has(ingredientKey(item))).map(item => item.name).filter(Boolean)
-    const removed = baseIngredients.filter(item => !currentKeys.has(ingredientKey(item))).map(item => item.name).filter(Boolean)
-    const changes = []
+    const baseByName = new Map(baseIngredients.map(item => [normalizeValue(item.name), item]))
+    const currentByName = new Map(currentIngredients.map(item => [normalizeValue(item.name), item]))
+    const changed = []
+    const added = []
+    const removed = []
+
+    currentIngredients.forEach(item => {
+      const key = normalizeValue(item.name)
+      const previous = baseByName.get(key)
+      if (!previous) { if (item.name) added.push(item.name); return }
+      const amountChanged = normalizeValue(previous.quantity) !== normalizeValue(item.quantity) || normalizeValue(previous.unit) !== normalizeValue(item.unit)
+      const notesChanged = normalizeValue(previous.notes) !== normalizeValue(item.notes)
+      if (amountChanged) changed.push(`${item.name} : ${formatIngredientAmount(previous)} → ${formatIngredientAmount(item)}`)
+      else if (notesChanged) changed.push(`${item.name} : précision modifiée`)
+    })
+    baseIngredients.forEach(item => {
+      if (!currentByName.has(normalizeValue(item.name)) && item.name) removed.push(item.name)
+    })
+
+    const changes = changed.slice(0, 3)
+    if (changed.length > 3) changes.push(`+${changed.length - 3} autre${changed.length - 3 > 1 ? 's' : ''} modification${changed.length - 3 > 1 ? 's' : ''}`)
     if (added.length) changes.push(`+ ${added.slice(0, 3).join(', ')}${added.length > 3 ? ` +${added.length - 3}` : ''}`)
     if (removed.length) changes.push(`− ${removed.slice(0, 3).join(', ')}${removed.length > 3 ? ` +${removed.length - 3}` : ''}`)
     if (baseSteps.length !== currentSteps.length) changes.push(`${currentSteps.length} étape${currentSteps.length > 1 ? 's' : ''} au lieu de ${baseSteps.length}`)
