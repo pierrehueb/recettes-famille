@@ -65,3 +65,6 @@
   .media-section,.comments-section{padding-left:10px;padding-right:10px}
   .mobile-nav{padding-left:4px;padding-right:4px}.mobile-nav-button{font-size:.68rem}
 }
+
+.recipe-tags{display:flex;flex-wrap:wrap;gap:6px}.recipe-tags span{display:inline-flex;padding:4px 8px;border:1px solid #eadfd2;border-radius:999px;background:#fffaf3;color:#8a6241;font-size:.7rem;font-weight:650;line-height:1.2}.recipe-tags.compact{margin-top:9px}.recipe-tags.detail-tags{margin:12px 0 2px}.field-hint{color:#948477;font-size:.75rem;font-weight:400;line-height:1.35}
+@media(max-width:520px){.recipe-tags span{font-size:.68rem;padding:4px 7px}}
