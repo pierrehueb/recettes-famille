@@ -126,14 +126,10 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
     if (!canEdit || !supabase || version.is_original) return
     setSaving(true); setError('')
     try {
-      const cleanIngredients = draftIngredients.filter(item => item.name.trim())
-      const cleanSteps = draftSteps.filter(item => item.instruction.trim())
-      const { error: deleteIngredientsError } = await supabase.from('ingredients').delete().eq('version_id', version.id)
-      if (deleteIngredientsError) throw deleteIngredientsError
-      const { error: deleteStepsError } = await supabase.from('preparation_steps').delete().eq('version_id', version.id)
-      if (deleteStepsError) throw deleteStepsError
-      if (cleanIngredients.length) { const { error } = await supabase.from('ingredients').insert(cleanIngredients.map((item, index) => ({ version_id: version.id, position: index + 1, quantity: item.quantity === '' ? null : Number(item.quantity), unit: item.unit.trim() || null, name: item.name.trim(), notes: item.notes.trim() || null }))); if (error) throw error }
-      if (cleanSteps.length) { const { error } = await supabase.from('preparation_steps').insert(cleanSteps.map((item, index) => ({ version_id: version.id, position: index + 1, instruction: item.instruction.trim(), duration_minutes: item.duration_minutes === '' ? null : Number(item.duration_minutes), temperature_celsius: item.temperature_celsius === '' ? null : Number(item.temperature_celsius) }))); if (error) throw error }
+      const cleanIngredients = draftIngredients.filter(item => item.name.trim()).map(item => ({ quantity: item.quantity === '' ? null : Number(item.quantity), unit: item.unit.trim() || null, name: item.name.trim(), notes: item.notes.trim() || null }))
+      const cleanSteps = draftSteps.filter(item => item.instruction.trim()).map(item => ({ instruction: item.instruction.trim(), duration_minutes: item.duration_minutes === '' ? null : Number(item.duration_minutes), temperature_celsius: item.temperature_celsius === '' ? null : Number(item.temperature_celsius) }))
+      const { error: updateError } = await supabase.rpc('update_recipe_variant', { p_version_id: version.id, p_ingredients: cleanIngredients, p_steps: cleanSteps })
+      if (updateError) throw updateError
       await load(); setEditingVersionId(null)
       if (onSelectVersion) onSelectVersion(version.id)
     } catch (saveError) { setError(saveError.message || 'Impossible d’enregistrer cette variante.') }
