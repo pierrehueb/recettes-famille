@@ -113,7 +113,7 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
     if (!requestedVersion || requestedVersion.is_original) return
     startEditing(requestedVersion)
     onEditingRequestHandled?.()
-    window.setTimeout(() => document.getElementById(\`variant-\${requestedVersion.id}\`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+    window.setTimeout(() => document.getElementById(`variant-${requestedVersion.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
   }, [requestedEditingVersionId, loading, canEdit, versions])
 
   const moveItem = (items, setItems, index, direction) => {
