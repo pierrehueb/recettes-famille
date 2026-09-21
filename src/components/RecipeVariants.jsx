@@ -24,6 +24,25 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
   const [role, setRole] = useState(null)
 
   const canEdit = role === 'admin' || role === 'editor'
+  const normalizeValue = value => String(value ?? '').trim().toLocaleLowerCase('fr')
+  const getChanges = version => {
+    if (version.is_original || !version.based_on_version_id) return []
+    const baseIngredients = ingredients[version.based_on_version_id] ?? []
+    const currentIngredients = ingredients[version.id] ?? []
+    const baseSteps = steps[version.based_on_version_id] ?? []
+    const currentSteps = steps[version.id] ?? []
+    const ingredientKey = item => [normalizeValue(item.name), normalizeValue(item.quantity), normalizeValue(item.unit), normalizeValue(item.notes)].join('|')
+    const baseKeys = new Set(baseIngredients.map(ingredientKey))
+    const currentKeys = new Set(currentIngredients.map(ingredientKey))
+    const added = currentIngredients.filter(item => !baseKeys.has(ingredientKey(item))).map(item => item.name).filter(Boolean)
+    const removed = baseIngredients.filter(item => !currentKeys.has(ingredientKey(item))).map(item => item.name).filter(Boolean)
+    const changes = []
+    if (added.length) changes.push(`+ ${added.slice(0, 3).join(', ')}${added.length > 3 ? ` +${added.length - 3}` : ''}`)
+    if (removed.length) changes.push(`− ${removed.slice(0, 3).join(', ')}${removed.length > 3 ? ` +${removed.length - 3}` : ''}`)
+    if (baseSteps.length !== currentSteps.length) changes.push(`${currentSteps.length} étape${currentSteps.length > 1 ? 's' : ''} au lieu de ${baseSteps.length}`)
+    else if (baseSteps.some((item, index) => normalizeValue(item.instruction) !== normalizeValue(currentSteps[index]?.instruction) || normalizeValue(item.duration_minutes) !== normalizeValue(currentSteps[index]?.duration_minutes) || normalizeValue(item.temperature_celsius) !== normalizeValue(currentSteps[index]?.temperature_celsius))) changes.push('Préparation modifiée')
+    return changes
+  }
   const groupByVersion = rows => rows.reduce((acc, row) => { (acc[row.version_id] ||= []).push(row); return acc }, {})
 
   const load = async () => {
@@ -123,7 +142,8 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
       const isCurrent = version.id === currentVersionId
       const parentVersion = versions.find(item => item.id === version.based_on_version_id)
       const creatorName = creatorNames[version.created_by]
-      const generationLabel = version.is_original ? '👵 Original' : `Version ${index}`
+      const generationLabel = version.is_original ? '👵 Original' : `Variante ${index}`
+      const changes = getChanges(version)
       return <article className={`variant-card ${isCurrent ? 'current' : ''}`} key={version.id}>
         <div className="variant-dot" />
         <div className="variant-body">
@@ -132,6 +152,7 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
           {creatorName && <div className="variant-creator">Créée par <strong>{creatorName}</strong></div>}
           {version.notes && <p>{version.notes}</p>}
           {parentVersion && <div className="variant-parent">↳ Inspirée de <strong>{parentVersion.version_name}</strong></div>}
+          {!version.is_original && changes.length > 0 && <div className="variant-changes"><span>Ce qui change</span><div>{changes.map(change => <strong key={change}>{change}</strong>)}</div></div>}
           <div className="variant-summary"><span>{(ingredients[version.id] ?? []).length} ingrédient{(ingredients[version.id] ?? []).length > 1 ? 's' : ''}</span><span>{(steps[version.id] ?? []).length} étape{(steps[version.id] ?? []).length > 1 ? 's' : ''}</span></div>
           <div className="variant-actions"><button type="button" className={`secondary-button small-button ${isCurrent ? 'is-selected' : ''}`} onClick={() => onSelectVersion?.(version.id)} disabled={isCurrent}>{isCurrent ? 'Version affichée' : 'Voir cette version'}</button>{canEdit && !version.is_original && <button type="button" className="secondary-button small-button" onClick={() => isEditing ? setEditingVersionId(null) : startEditing(version)}>{isEditing ? 'Fermer l’édition' : 'Modifier'}</button>}</div>
           {canEdit && isEditing && <div className="variant-editor"><div className="variant-editor-heading"><h4>Personnaliser cette variante</h4><p>Modifiez librement les ingrédients et la préparation. La recette originale reste intacte.</p></div><div className="variant-editor-block"><div className="variant-editor-title"><h5>Ingrédients</h5><button type="button" className="secondary-button small-button" onClick={() => setDraftIngredients([...draftIngredients, blankIngredient()])}>＋ Ajouter</button></div>{draftIngredients.map((item, itemIndex) => <div className="variant-ingredient-row" key={itemIndex}><input placeholder="Quantité" value={item.quantity} onChange={e => { const copy=[...draftIngredients]; copy[itemIndex]={...copy[itemIndex],quantity:e.target.value}; setDraftIngredients(copy) }} /><input placeholder="Unité" value={item.unit} onChange={e => { const copy=[...draftIngredients]; copy[itemIndex]={...copy[itemIndex],unit:e.target.value}; setDraftIngredients(copy) }} /><input className="variant-wide" placeholder="Ingrédient" value={item.name} onChange={e => { const copy=[...draftIngredients]; copy[itemIndex]={...copy[itemIndex],name:e.target.value}; setDraftIngredients(copy) }} /><button type="button" onClick={() => moveItem(draftIngredients,setDraftIngredients,itemIndex,-1)}>↑</button><button type="button" onClick={() => moveItem(draftIngredients,setDraftIngredients,itemIndex,1)}>↓</button><button type="button" onClick={() => setDraftIngredients(draftIngredients.filter((_,i)=>i!==itemIndex))}>×</button></div>)}</div><div className="variant-editor-block"><div className="variant-editor-title"><h5>Préparation</h5><button type="button" className="secondary-button small-button" onClick={() => setDraftSteps([...draftSteps, blankStep()])}>＋ Ajouter</button></div>{draftSteps.map((item,itemIndex) => <div className="variant-step-row" key={itemIndex}><textarea placeholder={`Étape ${itemIndex + 1}`} value={item.instruction} onChange={e => { const copy=[...draftSteps]; copy[itemIndex]={...copy[itemIndex],instruction:e.target.value}; setDraftSteps(copy) }} /><div><input placeholder="Durée (min)" value={item.duration_minutes} onChange={e => { const copy=[...draftSteps]; copy[itemIndex]={...copy[itemIndex],duration_minutes:e.target.value}; setDraftSteps(copy) }} /><input placeholder="Température (°C)" value={item.temperature_celsius} onChange={e => { const copy=[...draftSteps]; copy[itemIndex]={...copy[itemIndex],temperature_celsius:e.target.value}; setDraftSteps(copy) }} /></div><div className="variant-row-actions"><button type="button" onClick={() => moveItem(draftSteps,setDraftSteps,itemIndex,-1)}>↑</button><button type="button" onClick={() => moveItem(draftSteps,setDraftSteps,itemIndex,1)}>↓</button><button type="button" onClick={() => setDraftSteps(draftSteps.filter((_,i)=>i!==itemIndex))}>×</button></div></div>)}</div><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setEditingVersionId(null)}>Annuler</button><button type="button" className="primary-button" onClick={() => saveEdition(version)} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer les modifications'}</button></div></div>}
