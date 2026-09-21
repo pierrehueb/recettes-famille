@@ -6,7 +6,15 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const createConfiguredClient = () => {
   if (!supabaseUrl || !supabaseAnonKey) return null
 
-  const client = createClient(supabaseUrl, supabaseAnonKey)
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage,
+      storageKey: 'recettes-famille-auth',
+    },
+  })
   const pendingMediaUploads = new Set()
 
   const originalStorageFrom = client.storage.from.bind(client.storage)
