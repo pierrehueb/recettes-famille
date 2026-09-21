@@ -18,6 +18,7 @@ function CommentsSection({ recipeId, user }) {
   const [busyCommentId, setBusyCommentId] = useState(null)
   const [photoConfirmation, setPhotoConfirmation] = useState(null)
   const [replacePhotoInput, setReplacePhotoInput] = useState(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null)
 
   const loadComments = async () => {
     if (!supabase || !recipeId || !user) return
@@ -129,12 +130,12 @@ function CommentsSection({ recipeId, user }) {
     } finally { setBusyCommentId(null) }
   }
   const deleteComment = async comment => {
-    if (!canManageComment(comment) || !window.confirm('Supprimer définitivement ce souvenir ?')) return
+    if (!canManageComment(comment)) return
     setBusyCommentId(comment.id); setError('')
     try {
       if (comment.photo?.storage_path) { const { error: storageError } = await supabase.storage.from('family-media').remove([comment.photo.storage_path]); if (storageError) throw storageError; const { error: mediaError } = await supabase.from('media').delete().eq('id', comment.photo.id); if (mediaError) throw mediaError }
       const { error: deleteError } = await supabase.from('recipe_comments').delete().eq('id', comment.id); if (deleteError) throw deleteError
-      if (selectedPhoto?.comment_id === comment.id) setSelectedPhoto(null); if (editingId === comment.id) cancelEditing(); await loadComments()
+      if (selectedPhoto?.comment_id === comment.id) setSelectedPhoto(null); if (editingId === comment.id) cancelEditing(); setDeleteConfirmation(null); await loadComments()
     } catch (deleteError) { setError(deleteError.message || 'Impossible de supprimer ce souvenir.') } finally { setBusyCommentId(null) }
   }
 
@@ -154,7 +155,7 @@ function CommentsSection({ recipeId, user }) {
               <button type="button" style={actionStyle} onClick={() => startEditing(comment)} disabled={isBusy} aria-label="Modifier le souvenir" title="Modifier">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="m13.5 6.5 4 4" stroke="currentColor" strokeWidth="1.7"/></svg>
               </button>
-              <button type="button" style={actionStyle} onClick={() => deleteComment(comment)} disabled={isBusy} aria-label="Supprimer le souvenir" title="Supprimer">
+              <button type="button" style={actionStyle} onClick={() => setDeleteConfirmation(comment)} disabled={isBusy} aria-label="Supprimer le souvenir" title="Supprimer">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M8 10v8M12 10v8M16 10v8M7 7l1 14h8l1-14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
             </div>}
@@ -166,6 +167,7 @@ function CommentsSection({ recipeId, user }) {
       </div>
       {membership?.role === 'viewer' ? <div className="comments-empty">Votre rôle est « lecture seule » : vous pouvez consulter les souvenirs, mais pas en ajouter.</div> : <form className="comment-form" onSubmit={addComment}><label>Votre souvenir<textarea value={text} onChange={e => setText(e.target.value)} rows="4" maxLength="2000" placeholder="Ex. Mamie ajoutait toujours une cuillère de…" /></label><div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}><label style={photoActionStyle}><span aria-hidden="true">{photo ? '↻' : '+'}</span>{photo ? 'Remplacer' : 'Ajouter une photo'}<input type="file" accept="image/*" disabled={saving} style={{ display: 'none' }} onChange={e => setPhoto(e.target.files?.[0] || null)} /></label>{photo && <><span style={{ color: '#756a61', fontSize: '.8rem' }}>{photo.name}</span><button type="button" style={photoActionStyle} onClick={() => setPhoto(null)} disabled={saving}><span aria-hidden="true">⌫</span>Retirer</button></>}</div><div className="comment-form-footer"><span>{text.length}/2000</span><button type="submit" className="primary-button" disabled={saving || !text.trim()}>{saving ? 'Enregistrement…' : 'Partager le souvenir'}</button></div></form>}
     </>}
+    {deleteConfirmation && <div className="password-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !busyCommentId) setDeleteConfirmation(null) }}><div className="password-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-comment-title"><button type="button" className="password-modal-close" onClick={() => setDeleteConfirmation(null)} disabled={!!busyCommentId} aria-label="Fermer">×</button><p className="section-kicker">Suppression</p><h3 id="delete-comment-title">Supprimer ce souvenir ?</h3><p className="password-modal-intro">Cette action est définitive. {deleteConfirmation.photo ? "Le commentaire et sa photo seront supprimés." : "Le commentaire sera supprimé."}</p><div className="password-modal-actions"><button type="button" className="secondary-button" onClick={() => setDeleteConfirmation(null)} disabled={!!busyCommentId}>Annuler</button><button type="button" className="primary-button" onClick={() => deleteComment(deleteConfirmation)} disabled={!!busyCommentId}>{busyCommentId ? "Suppression…" : "Supprimer"}</button></div></div></div>}
     {selectedPhoto?.signedUrl && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo du souvenir agrandie" onClick={() => setSelectedPhoto(null)}><button type="button" className="photo-lightbox-close" onClick={() => setSelectedPhoto(null)} aria-label="Fermer">×</button><div className="photo-lightbox-content" onClick={event => event.stopPropagation()}><img src={selectedPhoto.signedUrl} alt={selectedPhoto.caption || selectedPhoto.original_filename || 'Photo du souvenir'} /></div></div>}
   </section>
 }
