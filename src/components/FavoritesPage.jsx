@@ -36,7 +36,7 @@ function FavoritesPage({ user, onOpen }) {
         const recipeIds = favoriteRows.map(item => item.recipe_id)
         const { data: recipeData, error: recipesError } = await supabase
           .from('recipes')
-          .select('id, title, description, original_author, origin_year, difficulty, servings, created_at')
+          .select('id, title, description, original_author, origin_year, difficulty, servings, preparation_time_minutes, cooking_time_minutes, tags, category_id, created_at, categories(name)')
           .in('id', recipeIds)
 
         if (recipesError) throw recipesError
@@ -84,26 +84,25 @@ function FavoritesPage({ user, onOpen }) {
     </div>}
 
     {!loading && !error && recipes.length > 0 && <div className="recipe-grid">
-      {recipes.map(recipe => <button
-        className="recipe-card"
-        key={recipe.id}
-        type="button"
-        onClick={() => onOpen(recipe.id)}
-      >
-        <div className="recipe-card-image" aria-hidden="true">🍲</div>
-        <div className="recipe-card-body">
-          <div className="recipe-card-meta">
-            {recipe.original_author && <span>{recipe.original_author}</span>}
-            {recipe.origin_year && <span>{recipe.origin_year}</span>}
+      {recipes.map(recipe => <div className="recipe-card" key={recipe.id}>
+        <button className="recipe-card-open" type="button" onClick={() => onOpen(recipe.id)}>
+          <div className="recipe-card-body">
+            {recipe.categories?.name && <span className="category-badge">{recipe.categories.name}</span>}
+            <div className="recipe-card-meta">
+              {recipe.original_author && <span>{recipe.original_author}</span>}
+              {recipe.origin_year && <span>{recipe.origin_year}</span>}
+            </div>
+            <h4>{recipe.title}</h4>
+            {recipe.description && <p>{recipe.description}</p>}
+            {recipe.tags?.length > 0 && <div className="recipe-tags compact">{recipe.tags.slice(0, 3).map(tag => <span key={tag}>#{tag}</span>)}</div>}
+            <div className="recipe-card-footer">
+              <span>{recipe.servings ? `👨‍👩‍👧‍👦 ${recipe.servings} pers.` : 'Recette familiale'}</span>
+              {recipe.difficulty && <span>{recipe.difficulty}</span>}
+            </div>
           </div>
-          <h4>{recipe.title}</h4>
-          {recipe.description && <p>{recipe.description}</p>}
-          <div className="recipe-card-footer">
-            <span>{recipe.servings ? `👨‍👩‍👧‍👦 ${recipe.servings} pers.` : 'Recette familiale'}</span>
-            {recipe.difficulty && <span>{recipe.difficulty}</span>}
-          </div>
-        </div>
-      </button>)}
+        </button>
+        <span className="recipe-card-favorite is-favorite" aria-label="Favori" title="Favori">♥</span>
+      </div>)}
     </div>}
   </section>
 }
