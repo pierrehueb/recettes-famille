@@ -34,7 +34,7 @@ export default function FamilyPage() {
       const [familyResult, membersResult, invitationsResult] = await Promise.all([
         supabase.from('families').select('id, name, description').eq('id', current.family_id).single(),
         supabase.from('family_members').select('id, display_name, role, is_active, created_at, user_id').eq('family_id', current.family_id).order('created_at', { ascending: true }),
-        current.role === 'admin' ? supabase.from('family_invitations').select('id, email, role, expires_at, accepted_at, revoked_at, created_at').eq('family_id', current.family_id).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [], error: null }),
+        current.role === 'admin' ? supabase.from('family_invitations').select('id, email, role, expires_at, accepted_at, revoked_at, created_at').eq('family_id', current.family_id).is('revoked_at', null).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [], error: null }),
       ])
       if (familyResult.error) throw familyResult.error
       if (membersResult.error) throw membersResult.error
