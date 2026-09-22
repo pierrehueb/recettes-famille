@@ -20,6 +20,8 @@ export default function FamilyPage() {
   const [inviteRole, setInviteRole] = useState('member')
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [memberConfirmation, setMemberConfirmation] = useState(null)
 
   const isAdmin = membership?.role === 'admin'
 
@@ -65,6 +67,7 @@ export default function FamilyPage() {
       if (updateError) throw updateError
       setMessage(`${member.display_name || 'Membre'} a été mis à jour.`)
       await load(user)
+      setMemberConfirmation(null)
     } catch (updateError) { setError(updateError.message || 'Impossible de modifier ce membre.') }
     finally { setSavingId(null) }
   }
@@ -103,8 +106,7 @@ export default function FamilyPage() {
 
   const revokeInvitation = async invitation => {
     if (!isAdmin || !supabase || invitation.accepted_at || invitation.revoked_at || new Date(invitation.expires_at) < new Date()) return
-    if (!window.confirm(`Révoquer l’invitation envoyée à ${invitation.email} ?`)) return
-    setRevokingId(invitation.id); setError(''); setMessage('')
+        setRevokingId(invitation.id); setError(''); setMessage('')
     try {
       const { error: revokeError } = await supabase.rpc('revoke_family_invitation', { p_invitation_id: invitation.id })
       if (revokeError) throw revokeError
@@ -126,12 +128,31 @@ export default function FamilyPage() {
   if (!membership) return <section className="family-section"><div className="status-card error-card">Aucune famille active n’est associée à votre compte.</div></section>
 
   return <section className="family-section">
-    <header className="family-header"><div><p className="section-kicker">Notre famille</p><h2>{family?.name || 'La famille'}</h2><p>{family?.description || 'Les personnes qui font vivre et transmettre ce livre de recettes.'}</p></div><div className="family-count"><strong>{activeMembers.length}</strong><span>membre{activeMembers.length > 1 ? 's' : ''}</span></div></header>
+    <header className="family-hero">
+      <div className="family-hero-mark" aria-hidden="true">♥</div>
+      <div className="family-hero-copy"><p className="section-kicker">Notre famille</p><h2>{family?.name || 'La famille'}</h2><p>{family?.description || 'Les personnes qui font vivre, cuisiner et transmettre ce livre de recettes.'}</p></div>
+      <div className="family-count"><strong>{activeMembers.length}</strong><span>membre{activeMembers.length > 1 ? 's' : ''}</span></div>
+    </header>
     {error && <div className="form-error">{error}</div>}{message && <div className="media-success">{message}</div>}
-    <div className="family-grid">
-      <section className="family-card"><div className="family-card-heading"><div><p className="section-kicker">Les membres</p><h3>Qui fait partie de la famille ?</h3></div></div><div className="member-list">{members.map(member => <article className={`member-row ${member.is_active ? '' : 'inactive'}`} key={member.id}><div className="member-avatar">{(member.display_name || '?').charAt(0).toUpperCase()}</div><div className="member-main"><strong>{member.display_name || 'Sans nom'}</strong><span>{member.user_id === user.id ? 'Vous · ' : ''}{roleDescriptions[member.role]}</span></div>{isAdmin && <div className="member-controls"><select value={member.role} disabled={savingId === member.id || member.user_id === user.id} onChange={e => updateMember(member, { role: e.target.value })} aria-label={`Rôle de ${member.display_name || 'ce membre'}`}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{member.is_active && member.user_id !== user.id && <button type="button" className="secondary-button small-button" disabled={savingId === member.id} onClick={() => updateMember(member, { is_active: false })}>{savingId === member.id ? '…' : 'Désactiver'}</button>}</div>}</article>)}</div></section>
-      {isAdmin && <section className="family-card invite-card"><div className="family-card-heading"><div><p className="section-kicker">Transmission</p><h3>Inviter un membre</h3><p>Créez une invitation privée valable 7 jours. La personne recevra directement le lien par email.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Envoi…' : 'Inviter par email'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours. Vous pouvez aussi le copier pour l’envoyer manuellement.</small></div>}</section>}
-    </div>
-    {isAdmin && invitations.length > 0 && <section className="family-card invitation-history"><div className="family-card-heading"><div><p className="section-kicker">Invitations</p><h3>Historique récent</h3></div></div><div className="invitation-list">{invitations.map(invitation => { const isExpired = new Date(invitation.expires_at) < new Date(); const canRevoke = !invitation.accepted_at && !invitation.revoked_at && !isExpired; return <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><div className="invitation-actions"><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : isExpired ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : isExpired ? 'Expirée' : 'En attente'}</span>{canRevoke && <button type="button" className="secondary-button small-button" disabled={revokingId === invitation.id} onClick={() => revokeInvitation(invitation)}>{revokingId === invitation.id ? '…' : 'Révoquer'}</button>}</div></div> })}</div></section>}
+
+    <section className="family-members-section">
+      <div className="family-section-heading"><div><p className="section-kicker">Les membres</p><h3>Ceux qui font vivre ce livre</h3></div>{isAdmin && <button type="button" className="family-admin-toggle" onClick={() => setAdminOpen(value => !value)}>{adminOpen ? 'Fermer la gestion' : 'Gérer la famille'}</button>}</div>
+      <div className="member-gallery">{activeMembers.map(member => <article className="member-card" key={member.id}>
+        <div className="member-avatar member-avatar-large">{(member.display_name || '?').charAt(0).toUpperCase()}</div>
+        <div className="member-card-copy"><strong>{member.display_name || 'Sans nom'}</strong><span>{member.user_id === user.id ? 'Vous · ' : ''}{roleLabels[member.role]}</span><small>{roleDescriptions[member.role]}</small></div>
+        {isAdmin && adminOpen && <div className="member-admin-controls"><select value={member.role} disabled={savingId === member.id || member.user_id === user.id} onChange={e => updateMember(member, { role: e.target.value })} aria-label={`Rôle de ${member.display_name || 'ce membre'}`}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{member.user_id !== user.id && <button type="button" className="member-remove-button" onClick={() => setMemberConfirmation(member)} disabled={savingId === member.id} aria-label={`Retirer ${member.display_name || 'ce membre'} de la famille`} title="Retirer de la famille">×</button>}</div>}
+      </article>)}</div>
+      {members.some(member => !member.is_active) && isAdmin && adminOpen && <details className="inactive-members"><summary>Membres désactivés ({members.filter(member => !member.is_active).length})</summary><div>{members.filter(member => !member.is_active).map(member => <span key={member.id}>{member.display_name || 'Sans nom'}</span>)}</div></details>}
+    </section>
+
+    {isAdmin && <section className={`family-management ${adminOpen ? 'open' : ''}`}>
+      <div className="family-management-heading"><p className="section-kicker">Administration</p><h3>Invitations et accès</h3><p>Cette partie est réservée aux administrateurs de la famille.</p></div>
+      <div className="family-management-grid">
+        <section className="family-card invite-card"><div className="family-card-heading"><div><h3>Inviter un proche</h3><p>Envoyez une invitation privée valable 7 jours.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Envoi…' : 'Envoyer l’invitation'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours.</small></div>}</section>
+        <section className="family-card invitation-history"><div className="family-card-heading"><div><h3>Invitations récentes</h3><p>Suivez les invitations encore en attente.</p></div></div>{invitations.length ? <div className="invitation-list">{invitations.map(invitation => { const isExpired = new Date(invitation.expires_at) < new Date(); const canRevoke = !invitation.accepted_at && !invitation.revoked_at && !isExpired; return <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><div className="invitation-actions"><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : isExpired ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : isExpired ? 'Expirée' : 'En attente'}</span>{canRevoke && <button type="button" className="invitation-revoke-button" disabled={revokingId === invitation.id} onClick={() => revokeInvitation(invitation)} aria-label={`Révoquer l’invitation de ${invitation.email}`} title="Révoquer">×</button>}</div></div> })}</div> : <p className="family-empty-note">Aucune invitation récente.</p>}</section>
+      </div>
+    </section>}
+
+    {memberConfirmation && <div className="family-confirmation-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !savingId) setMemberConfirmation(null) }}><div className="family-confirmation" role="alertdialog" aria-modal="true"><p className="section-kicker">Accès à la famille</p><h3>Retirer ce membre ?</h3><p><strong>{memberConfirmation.display_name || 'Ce membre'}</strong> n’aura plus accès à cette famille. Son contenu déjà transmis restera conservé.</p><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setMemberConfirmation(null)}>Annuler</button><button type="button" className="primary-button" disabled={savingId === memberConfirmation.id} onClick={() => updateMember(memberConfirmation, { is_active: false })}>{savingId === memberConfirmation.id ? 'Retrait…' : 'Retirer'}</button></div></div></div>}
   </section>
 }
