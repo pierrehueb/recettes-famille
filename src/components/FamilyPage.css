@@ -6,3 +6,5 @@
 .family-heading-actions{display:flex;align-items:center;gap:12px}.family-heading-actions .small-button{white-space:nowrap}@media(max-width:600px){.family-heading-actions{width:100%;align-items:stretch;flex-direction:column}.family-heading-actions .small-button{width:100%}.family-heading-actions .family-admin-toggle{align-self:center}}
 
 .member-add-card{width:100%;font:inherit;text-align:left;cursor:pointer;border-style:dashed;background:#fffaf6;color:#6f4b2e;box-shadow:none}.member-add-card:hover{border-color:#c9a77f;background:#fff7ed}.member-add-icon{display:grid;place-items:center;flex:0 0 auto;width:50px;height:50px;border:1px dashed #c9a77f;border-radius:50%;font-size:1.35rem}.member-add-card>span:last-child{display:grid;gap:3px}.member-add-card strong{color:#6f4b2e}.member-add-card small{color:#99897b;font-size:.72rem}
+
+#family-invite-card{scroll-margin-top:92px}@media(max-width:600px){#family-invite-card{scroll-margin-top:78px}}
