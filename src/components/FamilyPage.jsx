@@ -14,6 +14,8 @@ export default function FamilyPage() {
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [revokingId, setRevokingId] = useState(null)
+  const [cleaningInvitations, setCleaningInvitations] = useState(false)
+  const [cleanupConfirmation, setCleanupConfirmation] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
@@ -34,7 +36,7 @@ export default function FamilyPage() {
       const [familyResult, membersResult, invitationsResult] = await Promise.all([
         supabase.from('families').select('id, name, description').eq('id', current.family_id).single(),
         supabase.from('family_members').select('id, display_name, role, is_active, created_at, user_id').eq('family_id', current.family_id).order('created_at', { ascending: true }),
-        current.role === 'admin' ? supabase.from('family_invitations').select('id, email, role, expires_at, accepted_at, revoked_at, created_at').eq('family_id', current.family_id).is('revoked_at', null).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [], error: null }),
+        current.role === 'admin' ? supabase.from('family_invitations').select('id, email, role, expires_at, accepted_at, revoked_at, created_at').eq('family_id', current.family_id).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [], error: null }),
       ])
       if (familyResult.error) throw familyResult.error
       if (membersResult.error) throw membersResult.error
@@ -118,6 +120,32 @@ export default function FamilyPage() {
     } finally { setRevokingId(null) }
   }
 
+  const cleanupInvitations = async () => {
+    if (!isAdmin || !membership || !supabase) return
+    setCleaningInvitations(true); setError(''); setMessage('')
+    try {
+      const now = new Date().toISOString()
+      const { data: removable, error: selectError } = await supabase
+        .from('family_invitations')
+        .select('id')
+        .eq('family_id', membership.family_id)
+        .or(`revoked_at.not.is.null,expires_at.lt.${now}`)
+      if (selectError) throw selectError
+      const ids = (removable ?? []).map(item => item.id)
+      if (!ids.length) {
+        setMessage('Aucune invitation révoquée ou expirée à supprimer.')
+      } else {
+        const { error: deleteError } = await supabase.from('family_invitations').delete().in('id', ids)
+        if (deleteError) throw deleteError
+        setMessage(`${ids.length} invitation${ids.length > 1 ? 's' : ''} supprimée${ids.length > 1 ? 's' : ''}.`)
+        await load(user)
+      }
+      setCleanupConfirmation(false)
+    } catch (cleanupError) {
+      setError(cleanupError.message || 'Impossible de nettoyer les invitations.')
+    } finally { setCleaningInvitations(false) }
+  }
+
   const copyInviteLink = async () => {
     try { await navigator.clipboard.writeText(inviteLink); setMessage('Lien d’invitation copié.') }
     catch { setError('Impossible de copier automatiquement le lien. Vous pouvez le sélectionner et le copier manuellement.') }
@@ -149,10 +177,11 @@ export default function FamilyPage() {
       <div className="family-management-heading"><p className="section-kicker">Administration</p><h3>Invitations et accès</h3><p>Cette partie est réservée aux administrateurs de la famille.</p></div>
       <div className="family-management-grid">
         <section className="family-card invite-card" id="family-invite-card"><div className="family-card-heading"><div><h3>Inviter un proche</h3><p>Envoyez une invitation privée valable 7 jours.</p></div></div><form className="recipe-form" onSubmit={createInvitation}><label>Email<input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="prenom@email.com" required /></label><label>Rôle<select value={inviteRole} onChange={e => setInviteRole(e.target.value)}><option value="member">Membre — peut participer</option><option value="viewer">Lecteur — lecture uniquement</option><option value="editor">Éditeur — peut enrichir les recettes</option><option value="admin">Administrateur — gestion complète</option></select></label><button className="primary-button" type="submit" disabled={inviteLoading}>{inviteLoading ? 'Envoi…' : 'Envoyer l’invitation'}</button></form>{inviteLink && <div className="invite-result"><strong>Lien d’invitation</strong><div className="invite-link-row"><input readOnly value={inviteLink} aria-label="Lien d’invitation" /><button type="button" className="secondary-button small-button" onClick={copyInviteLink}>Copier</button></div><small>Le lien expire dans 7 jours.</small></div>}</section>
-        <section className="family-card invitation-history"><div className="family-card-heading"><div><h3>Invitations récentes</h3><p>Suivez les invitations encore en attente.</p></div></div>{invitations.length ? <div className="invitation-list">{invitations.map(invitation => { const isExpired = new Date(invitation.expires_at) < new Date(); const canRevoke = !invitation.accepted_at && !invitation.revoked_at && !isExpired; return <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><div className="invitation-actions"><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : isExpired ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : isExpired ? 'Expirée' : 'En attente'}</span>{canRevoke && <button type="button" className="invitation-revoke-button" disabled={revokingId === invitation.id} onClick={() => revokeInvitation(invitation)} aria-label={`Révoquer l’invitation de ${invitation.email}`} title="Révoquer">×</button>}</div></div> })}</div> : <p className="family-empty-note">Aucune invitation récente.</p>}</section>
+        <section className="family-card invitation-history"><div className="family-card-heading invitation-history-heading"><div><h3>Invitations récentes</h3><p>Suivez les invitations et nettoyez celles qui ne sont plus utiles.</p></div>{invitations.some(invitation => invitation.revoked_at || new Date(invitation.expires_at) < new Date()) && <button type="button" className="family-cleanup-button" onClick={() => setCleanupConfirmation(true)}>Nettoyer</button>}</div>{invitations.length ? <div className="invitation-list">{invitations.map(invitation => { const isExpired = new Date(invitation.expires_at) < new Date(); const canRevoke = !invitation.accepted_at && !invitation.revoked_at && !isExpired; return <div className="invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><span>{roleLabels[invitation.role]}</span></div><div className="invitation-actions"><span className={invitation.accepted_at ? 'invitation-status accepted' : invitation.revoked_at ? 'invitation-status revoked' : isExpired ? 'invitation-status expired' : 'invitation-status'}>{invitation.accepted_at ? 'Acceptée' : invitation.revoked_at ? 'Révoquée' : isExpired ? 'Expirée' : 'En attente'}</span>{canRevoke && <button type="button" className="invitation-revoke-button" disabled={revokingId === invitation.id} onClick={() => revokeInvitation(invitation)} aria-label={`Révoquer l’invitation de ${invitation.email}`} title="Révoquer">×</button>}</div></div> })}</div> : <p className="family-empty-note">Aucune invitation récente.</p>}</section>
       </div>
     </section>}
 
     {memberConfirmation && <div className="family-confirmation-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !savingId) setMemberConfirmation(null) }}><div className="family-confirmation" role="alertdialog" aria-modal="true"><p className="section-kicker">Accès à la famille</p><h3>Retirer ce membre ?</h3><p><strong>{memberConfirmation.display_name || 'Ce membre'}</strong> n’aura plus accès à cette famille. Son contenu déjà transmis restera conservé.</p><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setMemberConfirmation(null)}>Annuler</button><button type="button" className="primary-button" disabled={savingId === memberConfirmation.id} onClick={() => updateMember(memberConfirmation, { is_active: false })}>{savingId === memberConfirmation.id ? 'Retrait…' : 'Retirer'}</button></div></div></div>}
+    {cleanupConfirmation && <div className="family-confirmation-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !cleaningInvitations) setCleanupConfirmation(false) }}><div className="family-confirmation" role="alertdialog" aria-modal="true"><p className="section-kicker">Invitations</p><h3>Nettoyer l’historique ?</h3><p>Les invitations <strong>révoquées et expirées</strong> seront supprimées définitivement. Les invitations en attente ou déjà acceptées seront conservées.</p><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setCleanupConfirmation(false)} disabled={cleaningInvitations}>Annuler</button><button type="button" className="primary-button" onClick={cleanupInvitations} disabled={cleaningInvitations}>{cleaningInvitations ? 'Nettoyage…' : 'Nettoyer'}</button></div></div></div>}
   </section>
 }
