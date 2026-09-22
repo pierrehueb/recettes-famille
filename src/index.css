@@ -82,3 +82,5 @@
 .comment-card-focused{scroll-margin-top:100px;animation:comment-focus 1.8s ease-out}@keyframes comment-focus{0%,35%{box-shadow:0 0 0 3px rgba(154,107,66,.18);border-color:#cda984}100%{box-shadow:none}}
 
 .home-memory-photo{display:inline-flex;align-items:center;gap:4px;color:#9a6b42;font-size:.75rem;white-space:nowrap}.home-memory-photo span{font-size:.72rem}@media(max-width:600px){.home-memory-photo{margin-top:-1px}}
+
+.home-memory-content{display:flex;align-items:center;min-width:0;gap:8px}.home-memory-content p{min-width:0;flex:0 1 auto}.home-memory-content .home-memory-photo{flex:0 0 auto}@media(max-width:600px){.home-memory-content{align-items:baseline;flex-wrap:wrap;gap:4px 8px}}
