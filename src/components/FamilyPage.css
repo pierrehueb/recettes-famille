@@ -8,3 +8,5 @@
 .member-add-card{width:100%;font:inherit;text-align:left;cursor:pointer;border-style:dashed;background:#fffaf6;color:#6f4b2e;box-shadow:none}.member-add-card:hover{border-color:#c9a77f;background:#fff7ed}.member-add-icon{display:grid;place-items:center;flex:0 0 auto;width:50px;height:50px;border:1px dashed #c9a77f;border-radius:50%;font-size:1.35rem}.member-add-card>span:last-child{display:grid;gap:3px}.member-add-card strong{color:#6f4b2e}.member-add-card small{color:#99897b;font-size:.72rem}
 
 #family-invite-card{scroll-margin-top:92px}@media(max-width:600px){#family-invite-card{scroll-margin-top:78px}}
+
+.invitation-history-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.family-cleanup-button{flex:0 0 auto;border:0;background:transparent;color:#8b7969;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}.family-cleanup-button:hover{color:#6f4b2e;text-decoration:underline}@media(max-width:600px){.invitation-history-heading{gap:8px}.family-cleanup-button{padding-top:3px}}
