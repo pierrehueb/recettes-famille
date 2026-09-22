@@ -97,9 +97,7 @@ export default function FamilyPage() {
         body: JSON.stringify({ invitationToken: invitation.invitation_token }),
       })
       const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || 'L’invitation a été créée, mais l’email n’a pas pu être envoyé.')
 
-      setMessage(`Invitation envoyée par email à ${email}.`)
       setInviteEmail('')
       const { data: refreshedInvitations, error: refreshError } = await supabase
         .from('family_invitations')
@@ -109,6 +107,11 @@ export default function FamilyPage() {
         .limit(20)
       if (refreshError) throw refreshError
       setInvitations(refreshedInvitations ?? [])
+      if (!response.ok) {
+        setMessage('Invitation créée. L’email n’a pas pu être envoyé : vous pouvez copier le lien et le transmettre directement.')
+      } else {
+        setMessage(`Invitation envoyée par email à ${email}.`)
+      }
     } catch (inviteError) { setError(inviteError.message || 'Impossible de créer ou d’envoyer l’invitation.') }
     finally { setInviteLoading(false) }
   }
