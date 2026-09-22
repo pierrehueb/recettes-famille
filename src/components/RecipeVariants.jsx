@@ -22,6 +22,8 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
   const [draftIngredients, setDraftIngredients] = useState([])
   const [draftSteps, setDraftSteps] = useState([])
   const [role, setRole] = useState(null)
+  const [membershipId, setMembershipId] = useState(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState(null)
 
   const canEdit = role === 'admin' || role === 'editor'
   const normalizeValue = value => String(value ?? '').trim().toLocaleLowerCase('fr')
@@ -91,7 +93,7 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
     let cancelled = false
     const loadMembership = async () => {
       if (!user?.id) return
-      try { const membership = await getCurrentFamilyMembership(user.id); if (!cancelled) setRole(membership.role) }
+      try { const membership = await getCurrentFamilyMembership(user.id); if (!cancelled) { setRole(membership.role); setMembershipId(membership.id) } }
       catch (membershipError) { if (!cancelled) setError(membershipError.message || 'Impossible de vérifier vos droits.') }
     }
     loadMembership()
@@ -131,6 +133,22 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
     onEditingRequestHandled?.()
     window.setTimeout(() => document.getElementById(`variant-${requestedVersion.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
   }, [requestedEditingVersionId, loading, canEdit, versions])
+
+  const deleteVariant = async version => {
+    if (!supabase || version.is_original || !(role === 'admin' || version.created_by === membershipId)) return
+    const hasChildren = versions.some(item => item.based_on_version_id === version.id)
+    if (hasChildren) { setDeleteConfirmation(null); setError('Cette variante sert de base à une autre variante. Supprimez d’abord ses variantes descendantes.'); return }
+    setSaving(true); setError('')
+    try {
+      const { error: deleteError } = await supabase.from('recipe_versions').delete().eq('id', version.id)
+      if (deleteError) throw deleteError
+      setDeleteConfirmation(null)
+      const fallbackVersionId = version.based_on_version_id || versions.find(item => item.is_original)?.id
+      await load()
+      if (currentVersionId === version.id && fallbackVersionId) onSelectVersion?.(fallbackVersionId)
+    } catch (deleteError) { setError(deleteError.message || 'Impossible de supprimer cette variante.') }
+    finally { setSaving(false) }
+  }
 
   const moveItem = (items, setItems, index, direction) => {
     const target = index + direction
@@ -175,11 +193,12 @@ export default function RecipeVariants({ recipeId, user, currentVersionId, onSel
           {parentVersion && <div className="variant-parent">↳ Inspirée de <strong>{parentVersion.version_name}</strong></div>}
           {!version.is_original && changes.length > 0 && <div className="variant-changes"><span>Ce qui change</span><div>{changes.map(change => <strong key={change}>{change}</strong>)}</div></div>}
           <div className="variant-summary"><span>{(ingredients[version.id] ?? []).length} ingrédient{(ingredients[version.id] ?? []).length > 1 ? 's' : ''}</span><span>{(steps[version.id] ?? []).length} étape{(steps[version.id] ?? []).length > 1 ? 's' : ''}</span></div>
-          <div className="variant-actions"><button type="button" className={`secondary-button small-button ${isCurrent ? 'is-selected' : ''}`} onClick={() => onSelectVersion?.(version.id)} disabled={isCurrent}>{isCurrent ? 'Version affichée' : 'Voir cette version'}</button>{canEdit && !version.is_original && <button type="button" className="secondary-button small-button" onClick={() => isEditing ? setEditingVersionId(null) : startEditing(version)}>{isEditing ? 'Fermer l’édition' : 'Modifier'}</button>}</div>
+          <div className="variant-actions"><button type="button" className={`secondary-button small-button ${isCurrent ? 'is-selected' : ''}`} onClick={() => onSelectVersion?.(version.id)} disabled={isCurrent}>{isCurrent ? 'Version affichée' : 'Voir cette version'}</button>{canEdit && !version.is_original && <button type="button" className="secondary-button small-button" onClick={() => isEditing ? setEditingVersionId(null) : startEditing(version)}>{isEditing ? 'Fermer l’édition' : 'Modifier'}</button>}{!version.is_original && (role === 'admin' || version.created_by === membershipId) && <button type="button" className="variant-delete-button" onClick={() => setDeleteConfirmation(version)} aria-label={`Supprimer ${version.version_name}`} title="Supprimer la variante">×</button>}</div>
           {canEdit && isEditing && <div className="variant-editor"><div className="variant-editor-heading"><h4>Personnaliser cette variante</h4><p>Modifiez librement les ingrédients et la préparation. La recette originale reste intacte.</p></div><div className="variant-editor-block"><div className="variant-editor-title"><h5>Ingrédients</h5><button type="button" className="secondary-button small-button" onClick={() => setDraftIngredients([...draftIngredients, blankIngredient()])}>＋ Ajouter</button></div>{draftIngredients.map((item, itemIndex) => <div className="variant-ingredient-row" key={itemIndex}><input placeholder="Quantité" value={item.quantity} onChange={e => { const copy=[...draftIngredients]; copy[itemIndex]={...copy[itemIndex],quantity:e.target.value}; setDraftIngredients(copy) }} /><input placeholder="Unité" value={item.unit} onChange={e => { const copy=[...draftIngredients]; copy[itemIndex]={...copy[itemIndex],unit:e.target.value}; setDraftIngredients(copy) }} /><input className="variant-wide" placeholder="Ingrédient" value={item.name} onChange={e => { const copy=[...draftIngredients]; copy[itemIndex]={...copy[itemIndex],name:e.target.value}; setDraftIngredients(copy) }} /><button type="button" onClick={() => moveItem(draftIngredients,setDraftIngredients,itemIndex,-1)}>↑</button><button type="button" onClick={() => moveItem(draftIngredients,setDraftIngredients,itemIndex,1)}>↓</button><button type="button" onClick={() => setDraftIngredients(draftIngredients.filter((_,i)=>i!==itemIndex))}>×</button></div>)}</div><div className="variant-editor-block"><div className="variant-editor-title"><h5>Préparation</h5><button type="button" className="secondary-button small-button" onClick={() => setDraftSteps([...draftSteps, blankStep()])}>＋ Ajouter</button></div>{draftSteps.map((item,itemIndex) => <div className="variant-step-row" key={itemIndex}><textarea placeholder={`Étape ${itemIndex + 1}`} value={item.instruction} onChange={e => { const copy=[...draftSteps]; copy[itemIndex]={...copy[itemIndex],instruction:e.target.value}; setDraftSteps(copy) }} /><div><input placeholder="Durée (min)" value={item.duration_minutes} onChange={e => { const copy=[...draftSteps]; copy[itemIndex]={...copy[itemIndex],duration_minutes:e.target.value}; setDraftSteps(copy) }} /><input placeholder="Température (°C)" value={item.temperature_celsius} onChange={e => { const copy=[...draftSteps]; copy[itemIndex]={...copy[itemIndex],temperature_celsius:e.target.value}; setDraftSteps(copy) }} /></div><div className="variant-row-actions"><button type="button" onClick={() => moveItem(draftSteps,setDraftSteps,itemIndex,-1)}>↑</button><button type="button" onClick={() => moveItem(draftSteps,setDraftSteps,itemIndex,1)}>↓</button><button type="button" onClick={() => setDraftSteps(draftSteps.filter((_,i)=>i!==itemIndex))}>×</button></div></div>)}</div><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setEditingVersionId(null)}>Annuler</button><button type="button" className="primary-button" onClick={() => saveEdition(version)} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer les modifications'}</button></div></div>}
         </div>
       </article>
     })}</div>
+    {deleteConfirmation && <div className="variant-delete-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !saving) setDeleteConfirmation(null) }}><div className="variant-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="variant-delete-title"><button type="button" className="variant-delete-close" onClick={() => setDeleteConfirmation(null)} disabled={saving} aria-label="Fermer">×</button><p className="section-kicker">Suppression</p><h3 id="variant-delete-title">Supprimer cette variante ?</h3><p><strong>{deleteConfirmation.version_name}</strong> sera supprimée définitivement. La recette originale restera intacte.</p><div className="form-actions"><button type="button" className="secondary-button" onClick={() => setDeleteConfirmation(null)} disabled={saving}>Annuler</button><button type="button" className="primary-button" onClick={() => deleteVariant(deleteConfirmation)} disabled={saving}>{saving ? 'Suppression…' : 'Supprimer'}</button></div></div></div>}
     <div className="variant-comparison-action"><VersionComparison versions={versions} ingredients={ingredients} steps={steps} creatorNames={creatorNames} currentVersionId={currentVersionId} /></div>
   </section>
 }
