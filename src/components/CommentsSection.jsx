@@ -82,8 +82,18 @@ function CommentsSection({ recipeId, user, focusCommentId = null }) {
 
   useEffect(() => {
     if (loading || !focusCommentId || !comments.some(comment => comment.id === focusCommentId)) return
-    const timer = window.setTimeout(() => document.getElementById(`comment-${focusCommentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
-    return () => window.clearTimeout(timer)
+    let cancelled = false
+    const scrollToComment = () => {
+      if (cancelled) return
+      const target = document.getElementById(`comment-${focusCommentId}`)
+      if (!target) return
+      const headerOffset = 88
+      const top = target.getBoundingClientRect().top + window.scrollY - headerOffset
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
+    const firstTimer = window.setTimeout(scrollToComment, 120)
+    const settleTimer = window.setTimeout(scrollToComment, 700)
+    return () => { cancelled = true; window.clearTimeout(firstTimer); window.clearTimeout(settleTimer) }
   }, [loading, focusCommentId, comments])
 
   const canManageComment = comment => membership && (comment.created_by === membership.id || membership.role === 'admin')
