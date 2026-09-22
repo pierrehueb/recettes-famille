@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-function CommentsSection({ recipeId, user }) {
+function CommentsSection({ recipeId, user, focusCommentId = null }) {
   const [familyId, setFamilyId] = useState(null)
   const [membership, setMembership] = useState(null)
   const [comments, setComments] = useState([])
@@ -80,6 +80,12 @@ function CommentsSection({ recipeId, user }) {
     return () => { document.removeEventListener('keydown', onKeyDown); document.body.style.overflow = '' }
   }, [selectedPhoto])
 
+  useEffect(() => {
+    if (loading || !focusCommentId || !comments.some(comment => comment.id === focusCommentId)) return
+    const timer = window.setTimeout(() => document.getElementById(`comment-${focusCommentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
+    return () => window.clearTimeout(timer)
+  }, [loading, focusCommentId, comments])
+
   const canManageComment = comment => membership && (comment.created_by === membership.id || membership.role === 'admin')
 
   const addComment = async event => {
@@ -150,7 +156,7 @@ function CommentsSection({ recipeId, user }) {
       <div className="comments-list">
         {comments.length === 0 ? <div className="comments-empty">Aucun souvenir n’a encore été partagé. Soyez le premier à raconter l’histoire de cette recette.</div> : comments.map(comment => {
           const isEditing = editingId === comment.id; const canManage = canManageComment(comment); const isBusy = busyCommentId === comment.id
-          return <article className="comment-card" key={comment.id} style={{ position: 'relative' }}>
+          return <article id={`comment-${comment.id}`} className={`comment-card ${focusCommentId === comment.id ? 'comment-card-focused' : ''}`} key={comment.id} style={{ position: 'relative' }}>
             {canManage && !isEditing && <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 2 }}>
               <button type="button" style={actionStyle} onClick={() => startEditing(comment)} disabled={isBusy} aria-label="Modifier le souvenir" title="Modifier">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="m13.5 6.5 4 4" stroke="currentColor" strokeWidth="1.7"/></svg>
