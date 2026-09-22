@@ -101,7 +101,14 @@ export default function FamilyPage() {
 
       setMessage(`Invitation envoyée par email à ${email}.`)
       setInviteEmail('')
-      await load(user)
+      const { data: refreshedInvitations, error: refreshError } = await supabase
+        .from('family_invitations')
+        .select('id, email, role, expires_at, accepted_at, revoked_at, created_at')
+        .eq('family_id', membership.family_id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (refreshError) throw refreshError
+      setInvitations(refreshedInvitations ?? [])
     } catch (inviteError) { setError(inviteError.message || 'Impossible de créer ou d’envoyer l’invitation.') }
     finally { setInviteLoading(false) }
   }
