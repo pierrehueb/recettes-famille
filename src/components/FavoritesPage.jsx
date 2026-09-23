@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-function FavoritesPage({ user, onOpen }) {
+function FavoritesPage({ user, onOpen, activeFamilyId = null }) {
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -23,6 +23,7 @@ function FavoritesPage({ user, onOpen }) {
           .from('favorites')
           .select('recipe_id, created_at')
           .eq('user_id', user.id)
+          .eq('family_id', activeFamilyId)
           .order('created_at', { ascending: false })
 
         if (favoritesError) throw favoritesError
@@ -59,7 +60,7 @@ function FavoritesPage({ user, onOpen }) {
 
     loadFavorites()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [user?.id, activeFamilyId])
 
   return <section className="recipes-section">
     <div className="section-heading">
