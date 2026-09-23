@@ -5,7 +5,7 @@ import { getCurrentFamilyMembership } from '../lib/family'
 const roleLabels = { admin: 'Administrateur', editor: 'Éditeur', member: 'Membre', viewer: 'Lecteur' }
 const roleDescriptions = { admin: 'Gère la famille et les droits', editor: 'Peut enrichir les recettes', member: 'Peut consulter et participer', viewer: 'Lecture uniquement' }
 
-export default function FamilyPage() {
+export default function FamilyPage({ activeFamilyId = null }) {
   const [user, setUser] = useState(null)
   const [membership, setMembership] = useState(null)
   const [family, setFamily] = useState(null)
@@ -31,7 +31,7 @@ export default function FamilyPage() {
     if (!supabase || !currentUser) return
     setLoading(true); setError(''); setMessage('')
     try {
-      const current = await getCurrentFamilyMembership(currentUser.id)
+      const current = await getCurrentFamilyMembership(currentUser.id, activeFamilyId)
       setMembership(current)
       const [familyResult, membersResult, invitationsResult] = await Promise.all([
         supabase.from('families').select('id, name, description').eq('id', current.family_id).single(),
@@ -57,7 +57,7 @@ export default function FamilyPage() {
       else setLoading(false)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [activeFamilyId])
 
   const activeMembers = useMemo(() => members.filter(member => member.is_active), [members])
 
