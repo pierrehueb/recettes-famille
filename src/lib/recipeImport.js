@@ -13,7 +13,7 @@ export function normalizeImportedRecipe(value) {
 
   const ingredients = Array.isArray(value.ingredients)
     ? value.ingredients.map(item => ({
-        quantity: numericOrEmpty(item?.quantity),
+        quantity: item?.quantity == null ? '' : String(item.quantity).trim(),
         unit: textOrEmpty(item?.unit),
         name: textOrEmpty(item?.name),
         notes: textOrEmpty(item?.notes),
