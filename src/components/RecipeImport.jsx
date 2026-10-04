@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { analyzeRecipeScan } from '../lib/recipeImport'
 
-export default function RecipeImport({ onImported }) {
+export default function RecipeImport({ onImported, familyId }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
   const [loading, setLoading] = useState(false)
@@ -17,7 +17,7 @@ export default function RecipeImport({ onImported }) {
   const analyze = async () => {
     setLoading(true); setError('')
     try {
-      const recipe = await analyzeRecipeScan(file)
+      const recipe = await analyzeRecipeScan(file, familyId)
       onImported(recipe)
     } catch (e) {
       setError(e.message || 'Impossible d’analyser cette recette.')
