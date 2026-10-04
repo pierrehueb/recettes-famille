@@ -70,14 +70,14 @@ function RecipeDetailPage({ recipeId, initialVersionId, focusCommentId, user, fa
 const quantityToNumber = value => {
   const text = String(value ?? '').trim().replace(',', '.')
   if (!text) return null
-  const match = /^(?:(\\d+)\\s+)?(\\d+)\\/(\\d+)$/.exec(text)
+  const match = /^(?:(\d+)\s+)?(\d+)\/(\d+)$/.exec(text)
   if (match) return (Number(match[1]) || 0) + Number(match[2]) / Number(match[3])
   return Number(text)
 }
 const isValidQuantity = value => {
   const text = String(value ?? '').trim()
   if (!text) return true
-  if (!/^(?:\\d+(?:[.,]\\d+)?|(?:\\d+\\s+)?\\d+\\/\\d+)$/.test(text)) return false
+  if (!/^(?:\d+(?:[.,]\d+)?|(?:\d+\s+)?\d+\/\d+)$/.test(text)) return false
   return Number.isFinite(quantityToNumber(text)) && quantityToNumber(text) >= 0
 }
 const emptyIngredient = () => ({ quantity: '', unit: '', name: '', notes: '' }); const emptyStep = () => ({ instruction: '', duration_minutes: '', temperature_celsius: '' })
