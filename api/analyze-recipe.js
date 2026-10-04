@@ -19,7 +19,7 @@ const schema = {
       items: {
         type: 'object', additionalProperties: false,
         properties: {
-          quantity: { type: ['number', 'null'] },
+          quantity: { type: 'string' },
           unit: { type: 'string' },
           name: { type: 'string' },
           notes: { type: 'string' },
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
         input: [{
           role: 'user',
           content: [
-            { type: 'input_text', text: 'Extrais fidèlement cette recette imprimée. N’invente aucune information absente. Utilise une chaîne vide ou null selon le schéma lorsqu’une donnée n’est pas visible. Convertis les durées en minutes. Sépare les ingrédients et les étapes dans leur ordre d’origine. La difficulté ne doit être renseignée que si elle est explicitement indiquée.' },
+            { type: 'input_text', text: 'Extrais fidèlement cette recette imprimée. N’invente aucune information absente. Utilise une chaîne vide ou null selon le schéma lorsqu’une donnée n’est pas visible. Conserve les quantités exactement comme imprimées, notamment les fractions (1/4, 1/3, 1 1/2), sans les convertir en décimales. Si la quantité est absente, utilise une chaîne vide. Convertis les durées en minutes. Sépare les ingrédients et les étapes dans leur ordre d’origine. La difficulté ne doit être renseignée que si elle est explicitement indiquée.' },
             { type: 'input_image', image_url: image, detail: 'high' },
           ],
         }],
