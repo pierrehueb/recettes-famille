@@ -27,6 +27,15 @@ const schema = {
         required: ['quantity', 'unit', 'name', 'notes'],
       },
     },
+    illustration: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        found: { type: 'boolean' },
+        x: { type: 'integer' }, y: { type: 'integer' },
+        width: { type: 'integer' }, height: { type: 'integer' },
+      },
+      required: ['found', 'x', 'y', 'width', 'height'],
+    },
     steps: {
       type: 'array',
       items: {
@@ -40,7 +49,7 @@ const schema = {
       },
     },
   },
-  required: ['title', 'description', 'original_author', 'origin_year', 'difficulty', 'servings', 'preparation_time_minutes', 'cooking_time_minutes', 'ingredients', 'steps'],
+  required: ['title', 'description', 'original_author', 'origin_year', 'difficulty', 'servings', 'preparation_time_minutes', 'cooking_time_minutes', 'ingredients', 'steps', 'illustration'],
 }
 
 export default async function handler(req, res) {
@@ -107,7 +116,7 @@ export default async function handler(req, res) {
         input: [{
           role: 'user',
           content: [
-            { type: 'input_text', text: 'Extrais fidèlement cette recette imprimée. N’invente aucune information absente. Utilise une chaîne vide ou null selon le schéma lorsqu’une donnée n’est pas visible. Conserve les quantités exactement comme imprimées, notamment les fractions (1/4, 1/3, 1 1/2), sans les convertir en décimales. Si la quantité est absente, utilise une chaîne vide. Convertis les durées en minutes. Sépare les ingrédients et les étapes dans leur ordre d’origine. La difficulté ne doit être renseignée que si elle est explicitement indiquée.' },
+            { type: 'input_text', text: 'Extrais fidèlement cette recette imprimée. N’invente aucune information absente. Utilise une chaîne vide ou null selon le schéma lorsqu’une donnée n’est pas visible. Conserve les quantités exactement comme imprimées, notamment les fractions (1/4, 1/3, 1 1/2), sans les convertir en décimales. Si la quantité est absente, utilise une chaîne vide. Convertis les durées en minutes. Sépare les ingrédients et les étapes dans leur ordre d’origine. Repère la photo principale du plat (pas les petits pictogrammes). Si elle est clairement présente, fournis son rectangle x, y, width, height en coordonnées normalisées 0 à 1000 relatives à l’image entière; ne recadre pas le texte. Si aucune illustration identifiable, found=false et coordonnées à zéro. La difficulté ne doit être renseignée que si elle est explicitement indiquée.' },
             { type: 'input_image', image_url: image, detail: 'high' },
           ],
         }],
