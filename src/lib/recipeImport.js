@@ -39,6 +39,7 @@ export function normalizeImportedRecipe(value) {
     cooking_time_minutes: numericOrEmpty(value.cooking_time_minutes),
     ingredients,
     steps,
+    illustration: value.illustration?.found ? value.illustration : null,
   }
 }
 
