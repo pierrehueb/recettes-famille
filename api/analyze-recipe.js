@@ -1,4 +1,6 @@
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024
+const usage = new Map()
+const MAX_REQUESTS_PER_HOUR = 10
 
 const schema = {
   type: 'object',
@@ -45,12 +47,56 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée.' })
   if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: 'L’analyse de recette n’est pas encore configurée.' })
 
+  const token = /^Bearer (.+)$/i.exec(req.headers.authorization || '')?.[1]
+  const familyId = req.body?.familyId
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  if (!token) return res.status(401).json({ error: 'Connectez-vous pour analyser une recette.' })
+  if (!supabaseUrl || !supabaseKey) return res.status(503).json({ error: 'Authentification serveur non configurée.' })
+  if (typeof familyId !== 'string' || !/^[0-9a-f-]{36}$/i.test(familyId)) {
+    return res.status(400).json({ error: 'Famille invalide.' })
+  }
+
+  // Verify the JWT with Supabase Auth, then check the user's active family role via RLS.
+  const headers = { apikey: supabaseKey, Authorization: `Bearer ${token}` }
+  try {
+    const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, { headers })
+    if (!authResponse.ok) return res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' })
+    const authenticatedUser = await authResponse.json()
+    if (!authenticatedUser.id || authenticatedUser.is_anonymous) {
+      return res.status(403).json({ error: 'Compte non autorisé.' })
+    }
+    const membershipUrl = new URL(`${supabaseUrl}/rest/v1/family_members`)
+    membershipUrl.searchParams.set('select', 'role')
+    membershipUrl.searchParams.set('user_id', `eq.${authenticatedUser.id}`)
+    membershipUrl.searchParams.set('family_id', `eq.${familyId}`)
+    membershipUrl.searchParams.set('is_active', 'eq.true')
+    membershipUrl.searchParams.set('role', 'in.(admin,editor)')
+    const membershipResponse = await fetch(membershipUrl, { headers })
+    if (!membershipResponse.ok) throw new Error('Membership verification failed')
+    const memberships = await membershipResponse.json()
+    if (!Array.isArray(memberships) || memberships.length === 0) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas importer de recettes dans cette famille.' })
+    }
+    const now = Date.now()
+    for (const [key, entry] of usage) if (entry.expiresAt <= now) usage.delete(key)
+    const key = authenticatedUser.id
+    const entry = usage.get(key)
+    if (entry && entry.count >= MAX_REQUESTS_PER_HOUR) {
+      return res.status(429).json({ error: 'Limite temporaire atteinte. Réessayez dans une heure.' })
+    }
+    usage.set(key, entry ? { ...entry, count: entry.count + 1 } : { count: 1, expiresAt: now + 3600000 })
+  } catch (error) {
+    console.error('Recipe scan authorization failed:', error)
+    return res.status(503).json({ error: 'Impossible de vérifier vos droits pour le moment.' })
+  }
+
   const image = req.body?.image
   if (typeof image !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(image)) {
     return res.status(400).json({ error: 'Image invalide.' })
   }
   const base64 = image.slice(image.indexOf(',') + 1)
-  if (Math.ceil(base64.length * 3 / 4) > MAX_IMAGE_BYTES) return res.status(413).json({ error: 'Image trop volumineuse.' })
+  if (Math.ceil(base64.length * 3 / 4) > MAX_IMAGE_BYTES) return res.status(413).json({ error: 'Image trop volumineuse. Choisissez une image de moins de 3 Mo.' })
 
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
