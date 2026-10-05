@@ -130,3 +130,12 @@
 .variant-delete-action:hover{background:#fff1f0}
 .variant-delete-action:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:650px){.variant-editor-actions{align-items:stretch;flex-direction:column-reverse}.variant-editor-save-actions{width:100%;margin-left:0}.variant-editor-save-actions>button{flex:1}.variant-delete-action{width:100%}}
+
+/* Destructive action in the original recipe editor */
+.recipe-editor-actions{justify-content:space-between;align-items:center;gap:12px}
+.recipe-editor-save-actions{display:flex;gap:10px;align-items:center;margin-left:auto}
+.recipe-delete-action,.recipe-delete-confirm{border:1px solid #b94a48;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.recipe-delete-action{background:transparent;color:#a43e3c}.recipe-delete-action:hover{background:#fff1f0}
+.recipe-delete-confirm{background:#a43e3c;color:white}.recipe-delete-confirm:hover{filter:brightness(.94)}
+.recipe-delete-action:disabled,.recipe-delete-confirm:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:650px){.recipe-editor-actions{align-items:stretch;flex-direction:column-reverse}.recipe-editor-save-actions{width:100%;margin-left:0}.recipe-editor-save-actions>button{flex:1}.recipe-delete-action{width:100%}}
