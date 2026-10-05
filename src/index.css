@@ -149,3 +149,8 @@
 .recipe-page-picker input{accent-color:#90633d}
 .recipe-source-crop{margin-top:8px}
 .recipe-source-crop .recipe-crop-frame{pointer-events:none}
+
+.recipe-import-source-actions{display:flex;flex-wrap:wrap;gap:10px}
+.recipe-import-hidden-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+@media(min-width:900px){.recipe-camera-button{display:none}}
+@media(max-width:600px){.recipe-import-source-actions{display:grid;grid-template-columns:1fr 1fr}.recipe-import-source-actions .secondary-button{padding:12px 10px}}
