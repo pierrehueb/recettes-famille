@@ -122,3 +122,11 @@
 .crop-handle-bl{left:0;bottom:0;transform:translate(-50%,50%)}
 .crop-handle-br{right:0;bottom:0;transform:translate(50%,50%)}
 @media(max-width:600px){.crop-handle{width:36px;height:36px}}
+
+/* Variant deletion lives inside the edit panel */
+.variant-editor-actions{justify-content:space-between;align-items:center;gap:12px}
+.variant-editor-save-actions{display:flex;gap:10px;align-items:center;margin-left:auto}
+.variant-delete-action{border:1px solid #b94a48;background:transparent;color:#a43e3c;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.variant-delete-action:hover{background:#fff1f0}
+.variant-delete-action:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:650px){.variant-editor-actions{align-items:stretch;flex-direction:column-reverse}.variant-editor-save-actions{width:100%;margin-left:0}.variant-editor-save-actions>button{flex:1}.variant-delete-action{width:100%}}
