@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { analyzeRecipeScan } from '../lib/recipeImport'
 
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n))
@@ -8,6 +8,8 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
   const [pages, setPages] = useState([])
   const [activePage, setActivePage] = useState(0)
   const [preparing, setPreparing] = useState(false)
+  const cameraInputRef = useRef(null)
+  const fileInputRef = useRef(null)
   const [preview, setPreview] = useState('')
   const [cropPreview, setCropPreview] = useState('')
   const [crop, setCrop] = useState(null)
@@ -154,7 +156,12 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
       <h3>Scanner une recette imprimée</h3>
       <p>Importez une page : le texte est extrait et la photo du plat est proposée si elle est détectée.</p>
     </div>
-    <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event => prepareFile(event.target.files?.[0] || null)} />
+    <div className="recipe-import-source-actions">
+      <button type="button" className="secondary-button recipe-camera-button" onClick={() => cameraInputRef.current?.click()}>📷 Prendre une photo</button>
+      <button type="button" className="secondary-button" onClick={() => fileInputRef.current?.click()}>📁 Choisir un fichier</button>
+      <input ref={cameraInputRef} className="recipe-import-hidden-input" type="file" accept="image/*" capture="environment" onChange={event => { prepareFile(event.target.files?.[0] || null); event.target.value = '' }} />
+      <input ref={fileInputRef} className="recipe-import-hidden-input" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event => { prepareFile(event.target.files?.[0] || null); event.target.value = '' }} />
+    </div>
     {preparing && <p className="field-hint">Préparation des pages du PDF…</p>}
     {pages.length > 1 && <div className="recipe-page-picker">{pages.map((page,index) => <button type="button" key={index} className={(page.selected ? 'selected ' : '') + (activePage === index ? 'active' : '')} onClick={() => setActivePage(index)}><span>{page.label}</span><input type="checkbox" checked={page.selected} onClick={e => e.stopPropagation()} onChange={() => togglePage(index)} aria-label={'Inclure '+page.label} /></button>)}</div>}
     {preview && <><p className="field-hint">Cadrez la zone de la recette sur {pages[activePage]?.label?.toLowerCase()}. Pour plusieurs pages, cochez toutes celles à analyser.</p><div className="recipe-crop-stage recipe-source-crop"><img src={preview} alt="Page à analyser" /><div className="recipe-crop-frame" style={{left:(pages[activePage]?.crop.x/10)+'%',top:(pages[activePage]?.crop.y/10)+'%',width:(pages[activePage]?.crop.width/10)+'%',height:(pages[activePage]?.crop.height/10)+'%'}}></div></div><div className="recipe-crop-controls">{[['x','Position horizontale'],['y','Position verticale'],['width','Largeur'],['height','Hauteur']].map(([key,label]) => { const r=pages[activePage]?.crop; if(!r) return null; const max=key==='x'?1000-r.width:key==='y'?1000-r.height:key==='width'?1000-r.x:1000-r.y; return <label key={key}>{label}<input type="range" min={key==='width'||key==='height'?40:0} max={max} value={r[key]} onChange={e=>{const next={...r,[key]:Number(e.target.value)};updateSelectionCrop(next)}} /></label>})}</div></>}
