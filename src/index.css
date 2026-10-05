@@ -114,3 +114,11 @@
 .recipe-crop-frame .crop-grid-h.crop-grid-one{top:33.333%}.recipe-crop-frame .crop-grid-h.crop-grid-two{top:66.666%}
 .recipe-crop-result{display:block;max-width:100%;max-height:240px;object-fit:contain;margin:6px auto 16px;border-radius:10px}
 @media(max-width:600px){.recipe-crop-stage>img{max-height:430px}}
+
+/* Crop corner drag handles */
+.crop-handle{position:absolute;z-index:3;width:30px;height:30px;padding:0;border:3px solid white;border-radius:50%;background:#90633d;box-shadow:0 1px 5px rgba(0,0,0,.3);pointer-events:auto;touch-action:none}
+.crop-handle-tl{left:0;top:0;transform:translate(-50%,-50%)}
+.crop-handle-tr{right:0;top:0;transform:translate(50%,-50%)}
+.crop-handle-bl{left:0;bottom:0;transform:translate(-50%,50%)}
+.crop-handle-br{right:0;bottom:0;transform:translate(50%,50%)}
+@media(max-width:600px){.crop-handle{width:36px;height:36px}}
