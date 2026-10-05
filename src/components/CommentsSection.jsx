@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { compressPhoto } from '../lib/imageCompression'
 
 function CommentsSection({ recipeId, user, focusCommentId = null }) {
   const [familyId, setFamilyId] = useState(null)
@@ -105,9 +106,10 @@ function CommentsSection({ recipeId, user, focusCommentId = null }) {
       const { data: createdComment, error: insertError } = await supabase.from('recipe_comments').insert({ family_id: familyId, recipe_id: recipeId, content, created_by: membership.id }).select('id').single()
       if (insertError) throw insertError
       if (photo) {
-        const extension = photo.name.includes('.') ? `.${photo.name.split('.').pop().toLowerCase()}` : ''; const id = crypto.randomUUID(); const path = `${familyId}/recipes/${recipeId}/comments/${createdComment.id}/${id}${extension}`
-        const { error: uploadError } = await supabase.storage.from('family-media').upload(path, photo, { contentType: photo.type || undefined, upsert: false }); if (uploadError) throw uploadError
-        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, comment_id: createdComment.id, storage_path: path, media_type: 'photo', mime_type: photo.type || null, original_filename: photo.name, position: 0, created_by: membership.id })
+        const uploadPhoto = await compressPhoto(photo)
+        const extension = uploadPhoto.name.includes('.') ? `.${uploadPhoto.name.split('.').pop().toLowerCase()}` : ''; const id = crypto.randomUUID(); const path = `${familyId}/recipes/${recipeId}/comments/${createdComment.id}/${id}${extension}`
+        const { error: uploadError } = await supabase.storage.from('family-media').upload(path, uploadPhoto, { contentType: uploadPhoto.type || undefined, upsert: false }); if (uploadError) throw uploadError
+        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, comment_id: createdComment.id, storage_path: path, media_type: 'photo', mime_type: uploadPhoto.type || null, original_filename: photo.name, position: 0, created_by: membership.id })
         if (mediaError) { await supabase.storage.from('family-media').remove([path]); throw mediaError }
       }
       setText(''); setPhoto(null); await loadComments()
@@ -125,11 +127,12 @@ function CommentsSection({ recipeId, user, focusCommentId = null }) {
       if (updateError) throw updateError
 
       if (editingPhoto) {
-        const extension = editingPhoto.name.includes('.') ? `.${editingPhoto.name.split('.').pop().toLowerCase()}` : ''
+        const uploadPhoto = await compressPhoto(editingPhoto)
+        const extension = uploadPhoto.name.includes('.') ? `.${uploadPhoto.name.split('.').pop().toLowerCase()}` : ''
         newStoragePath = `${familyId}/recipes/${recipeId}/comments/${comment.id}/${crypto.randomUUID()}${extension}`
-        const { error: uploadError } = await supabase.storage.from('family-media').upload(newStoragePath, editingPhoto, { contentType: editingPhoto.type || undefined, upsert: false })
+        const { error: uploadError } = await supabase.storage.from('family-media').upload(newStoragePath, uploadPhoto, { contentType: uploadPhoto.type || undefined, upsert: false })
         if (uploadError) throw uploadError
-        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, comment_id: comment.id, storage_path: newStoragePath, media_type: 'photo', mime_type: editingPhoto.type || null, original_filename: editingPhoto.name, position: 0, created_by: membership.id })
+        const { error: mediaError } = await supabase.from('media').insert({ family_id: familyId, comment_id: comment.id, storage_path: newStoragePath, media_type: 'photo', mime_type: uploadPhoto.type || null, original_filename: editingPhoto.name, position: 0, created_by: membership.id })
         if (mediaError) { await supabase.storage.from('family-media').remove([newStoragePath]); throw mediaError }
       }
 
