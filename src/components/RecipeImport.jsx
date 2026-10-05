@@ -89,8 +89,9 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
     </button>
     {crop && <div className="recipe-illustration-editor">
       <h4>Photo d’illustration proposée</h4>
-      <p>Vérifiez le cadrage. Cette photo ne sera enregistrée qu’avec votre recette.</p>
-      {cropPreview && <img src={cropPreview} alt="Photo recadrée proposée" />}
+      <p>Ajustez le cadre sur la page complète. La zone extérieure reste visible pour faciliter le cadrage.</p>
+      {preview && <div className="recipe-crop-stage"><img src={preview} alt="Page originale" /><div className="recipe-crop-frame" style={{ left: (crop.x / 10) + '%', top: (crop.y / 10) + '%', width: (crop.width / 10) + '%', height: (crop.height / 10) + '%' }}><span className="crop-grid-v crop-grid-one"></span><span className="crop-grid-v crop-grid-two"></span><span className="crop-grid-h crop-grid-one"></span><span className="crop-grid-h crop-grid-two"></span></div></div>}
+      {cropPreview && <><div className="field-hint">Aperçu final</div><img className="recipe-crop-result" src={cropPreview} alt="Photo recadrée proposée" /></>}
       <div className="recipe-crop-controls">
         {[
           ['x', 'Position horizontale'], ['y', 'Position verticale'],
