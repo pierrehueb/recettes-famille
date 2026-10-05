@@ -3,7 +3,7 @@ import { analyzeRecipeScan } from '../lib/recipeImport'
 
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n))
 
-export default function RecipeImport({ onImported, onPhotoChange, familyId }) {
+export default function RecipeImport({ onImported, onPhotoChange, onSourceChange, familyId }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
   const [cropPreview, setCropPreview] = useState('')
@@ -80,7 +80,7 @@ export default function RecipeImport({ onImported, onPhotoChange, familyId }) {
       <p>Importez une page : le texte est extrait et la photo du plat est proposée si elle est détectée.</p>
     </div>
     <input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => {
-      setFile(event.target.files?.[0] || null); setCrop(null); setCropPreview(''); onPhotoChange?.(null)
+      const nextFile = event.target.files?.[0] || null; setFile(nextFile); setCrop(null); setCropPreview(''); onPhotoChange?.(null); onSourceChange?.(nextFile)
     }} />
     {preview && <img className="recipe-import-preview" src={preview} alt="Page à analyser" />}
     {error && <div className="form-error">{error}</div>}
