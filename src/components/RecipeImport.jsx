@@ -55,6 +55,35 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
     })
   }
 
+  const startResize = (corner, event) => {
+    event.preventDefault()
+    const stage = event.currentTarget.closest('.recipe-crop-stage')
+    if (!stage || !crop) return
+    const start = { x: event.clientX, y: event.clientY, crop: { ...crop }, rect: stage.getBoundingClientRect() }
+    const move = moveEvent => {
+      const dx = (moveEvent.clientX - start.x) / start.rect.width * 1000
+      const dy = (moveEvent.clientY - start.y) / start.rect.height * 1000
+      const left = start.crop.x, top = start.crop.y
+      const right = start.crop.x + start.crop.width, bottom = start.crop.y + start.crop.height
+      let nextLeft = left, nextTop = top, nextRight = right, nextBottom = bottom
+      if (corner.includes('l')) nextLeft = clamp(left + dx, 0, right - 40)
+      if (corner.includes('r')) nextRight = clamp(right + dx, left + 40, 1000)
+      if (corner.includes('t')) nextTop = clamp(top + dy, 0, bottom - 40)
+      if (corner.includes('b')) nextBottom = clamp(bottom + dy, top + 40, 1000)
+      const next = { x: Math.round(nextLeft), y: Math.round(nextTop), width: Math.round(nextRight - nextLeft), height: Math.round(nextBottom - nextTop) }
+      setCrop(next)
+      onPhotoChange?.({ file, crop: next })
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+  }
+
   const analyze = async () => {
     setLoading(true); setError(''); setCrop(null); setCropPreview(''); onPhotoChange?.(null)
     try {
@@ -89,8 +118,8 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
     </button>
     {crop && <div className="recipe-illustration-editor">
       <h4>Photo d’illustration proposée</h4>
-      <p>Ajustez le cadre sur la page complète. La zone extérieure reste visible pour faciliter le cadrage.</p>
-      {preview && <div className="recipe-crop-stage"><img src={preview} alt="Page originale" /><div className="recipe-crop-frame" style={{ left: (crop.x / 10) + '%', top: (crop.y / 10) + '%', width: (crop.width / 10) + '%', height: (crop.height / 10) + '%' }}><span className="crop-grid-v crop-grid-one"></span><span className="crop-grid-v crop-grid-two"></span><span className="crop-grid-h crop-grid-one"></span><span className="crop-grid-h crop-grid-two"></span></div></div>}
+      <p>Faites glisser les coins du cadre pour ajuster directement le cadrage. La zone extérieure reste visible.</p>
+      {preview && <div className="recipe-crop-stage"><img src={preview} alt="Page originale" /><div className="recipe-crop-frame" style={{ left: (crop.x / 10) + '%', top: (crop.y / 10) + '%', width: (crop.width / 10) + '%', height: (crop.height / 10) + '%' }}><span className="crop-grid-v crop-grid-one"></span><span className="crop-grid-v crop-grid-two"></span><span className="crop-grid-h crop-grid-one"></span><span className="crop-grid-h crop-grid-two"></span><button type="button" className="crop-handle crop-handle-tl" aria-label="Redimensionner depuis le coin supérieur gauche" onPointerDown={event => startResize("tl", event)}></button><button type="button" className="crop-handle crop-handle-tr" aria-label="Redimensionner depuis le coin supérieur droit" onPointerDown={event => startResize("tr", event)}></button><button type="button" className="crop-handle crop-handle-bl" aria-label="Redimensionner depuis le coin inférieur gauche" onPointerDown={event => startResize("bl", event)}></button><button type="button" className="crop-handle crop-handle-br" aria-label="Redimensionner depuis le coin inférieur droit" onPointerDown={event => startResize("br", event)}></button></div></div>}
       {cropPreview && <><div className="field-hint">Aperçu final</div><img className="recipe-crop-result" src={cropPreview} alt="Photo recadrée proposée" /></>}
       <div className="recipe-crop-controls">
         {[
