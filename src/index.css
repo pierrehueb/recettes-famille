@@ -88,3 +88,37 @@
 .family-switcher{margin-left:auto}.family-switcher select{max-width:190px;padding:8px 30px 8px 12px;border:1px solid #e3d7ca;border-radius:999px;background:#fffdf9;color:#674c36;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}.recipe-transmit-dialog label{display:grid;gap:7px;margin:18px 0;text-align:left;color:#65594f;font-size:.86rem;font-weight:600}.recipe-transmit-dialog select{width:100%;padding:11px 12px;border:1px solid #dfd1c1;border-radius:10px;background:#fff;color:#514940;font:inherit}.recipe-transmit-message{padding:9px 11px;border-radius:10px;background:#faf3e9;color:#765638;font-size:.85rem}@media(max-width:760px){.family-switcher{order:3;width:100%;margin:4px 0 0}.family-switcher select{width:100%;max-width:none}.header-inner{flex-wrap:wrap}}
 
 .family-switcher-wrap{margin-left:auto;display:flex;align-items:center;gap:7px}.family-switcher-wrap .family-switcher{margin-left:0}.family-create-button{width:34px;height:34px;border:1px solid #e3d7ca;border-radius:50%;background:#fffdf9;color:#8a6547;font-size:1.15rem;line-height:1;cursor:pointer;transition:.15s ease}.family-create-button:hover{background:#fff7ee;border-color:#cfb79f}.create-family-dialog{max-width:500px;text-align:left}.create-family-dialog>p:not(.section-kicker){color:#6f655c;line-height:1.55}.create-family-dialog .recipe-form{margin-top:18px}.optional-label{font-weight:400;color:#a09184;font-size:.78rem}@media(max-width:760px){.family-switcher-wrap{order:3;width:100%;margin:4px 0 0}.family-switcher-wrap .family-switcher{flex:1;width:auto}.family-create-button{flex:0 0 38px;width:38px;height:38px}}
+
+/* Recipe scan import: isolated from the existing recipe editor */
+.recipe-import { display: grid; gap: 1rem; padding: 1.25rem; margin-bottom: 1.5rem; border: 1px solid var(--border, #ddd); border-radius: 16px; }
+.recipe-import h3 { margin: 0.2rem 0; }
+.recipe-import p { margin: 0; }
+.recipe-import-preview { display: block; max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 12px; }
+
+.recipe-illustration-editor{margin-top:18px;padding:18px;border:1px solid #e6d5c2;border-radius:16px;background:#fffdf9}
+.recipe-illustration-editor h4{margin:0 0 6px;font-family:'Playfair Display',Georgia,serif;font-size:1.35rem}
+.recipe-illustration-editor p{color:#756a61;margin:0 0 12px}
+.recipe-illustration-editor>img{display:block;max-width:100%;max-height:340px;object-fit:contain;margin:0 auto 16px;border-radius:12px}
+.recipe-crop-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.recipe-crop-controls label{display:grid;gap:5px;font-size:.86rem;color:#645447}
+.recipe-crop-controls input{width:100%;accent-color:#90633d}
+@media(max-width:600px){.recipe-crop-controls{grid-template-columns:1fr}}
+
+/* Visual crop editor: keep source context visible around the selected illustration */
+.recipe-crop-stage{position:relative;display:block;width:fit-content;max-width:100%;margin:0 auto 16px;overflow:hidden;border-radius:12px;line-height:0;background:#f3eee8}
+.recipe-crop-stage>img{display:block;width:auto;height:auto;max-width:100%;max-height:520px;object-fit:contain}
+.recipe-crop-frame{position:absolute;box-sizing:border-box;border:3px solid white;box-shadow:0 0 0 9999px rgba(25,18,12,.42),0 0 0 1px rgba(45,28,15,.8);pointer-events:none}
+.recipe-crop-frame .crop-grid-v,.recipe-crop-frame .crop-grid-h{position:absolute;display:block;background:rgba(255,255,255,.58)}
+.recipe-crop-frame .crop-grid-v{top:0;bottom:0;width:1px}.recipe-crop-frame .crop-grid-h{left:0;right:0;height:1px}
+.recipe-crop-frame .crop-grid-v.crop-grid-one{left:33.333%}.recipe-crop-frame .crop-grid-v.crop-grid-two{left:66.666%}
+.recipe-crop-frame .crop-grid-h.crop-grid-one{top:33.333%}.recipe-crop-frame .crop-grid-h.crop-grid-two{top:66.666%}
+.recipe-crop-result{display:block;max-width:100%;max-height:240px;object-fit:contain;margin:6px auto 16px;border-radius:10px}
+@media(max-width:600px){.recipe-crop-stage>img{max-height:430px}}
+
+/* Crop corner drag handles */
+.crop-handle{position:absolute;z-index:3;width:30px;height:30px;padding:0;border:3px solid white;border-radius:50%;background:#90633d;box-shadow:0 1px 5px rgba(0,0,0,.3);pointer-events:auto;touch-action:none}
+.crop-handle-tl{left:0;top:0;transform:translate(-50%,-50%)}
+.crop-handle-tr{right:0;top:0;transform:translate(50%,-50%)}
+.crop-handle-bl{left:0;bottom:0;transform:translate(-50%,50%)}
+.crop-handle-br{right:0;bottom:0;transform:translate(50%,50%)}
+@media(max-width:600px){.crop-handle{width:36px;height:36px}}
