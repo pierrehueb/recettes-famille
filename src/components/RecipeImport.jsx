@@ -120,6 +120,31 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
   const updateSelectionCrop = next => setPages(current => current.map((page, index) => index === activePage ? { ...page, crop: next } : page))
   const togglePage = index => setPages(current => current.map((page, i) => i === index ? { ...page, selected: !page.selected } : page))
 
+  const startSourceResize = (corner, event) => {
+    event.preventDefault()
+    const stage = event.currentTarget.closest('.recipe-crop-stage')
+    const page = pages[activePage]
+    if (!stage || !page) return
+    const start = page.crop
+    const startX = event.clientX
+    const startY = event.clientY
+    const rect = stage.getBoundingClientRect()
+    const move = moveEvent => {
+      const dx = (moveEvent.clientX - startX) / rect.width * 1000
+      const dy = (moveEvent.clientY - startY) / rect.height * 1000
+      let left = start.x, top = start.y, right = start.x + start.width, bottom = start.y + start.height
+      if (corner.includes('l')) left = Math.max(0, Math.min(right - 40, start.x + dx))
+      if (corner.includes('r')) right = Math.min(1000, Math.max(left + 40, start.x + start.width + dx))
+      if (corner.includes('t')) top = Math.max(0, Math.min(bottom - 40, start.y + dy))
+      if (corner.includes('b')) bottom = Math.min(1000, Math.max(top + 40, start.y + start.height + dy))
+      updateSelectionCrop({ x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) })
+    }
+    const end = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+
   const buildAnalysisImage = async () => {
     const selected = pages.filter(page => page.selected)
     if (!selected.length) throw new Error('Sélectionnez au moins une page ou une zone.')
@@ -164,7 +189,7 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
     </div>
     {preparing && <p className="field-hint">Préparation des pages du PDF…</p>}
     {pages.length > 1 && <div className="recipe-page-picker">{pages.map((page,index) => <button type="button" key={index} className={(page.selected ? 'selected ' : '') + (activePage === index ? 'active' : '')} onClick={() => setActivePage(index)}><span>{page.label}</span><input type="checkbox" checked={page.selected} onClick={e => e.stopPropagation()} onChange={() => togglePage(index)} aria-label={'Inclure '+page.label} /></button>)}</div>}
-    {preview && <><p className="field-hint">Cadrez la zone de la recette sur {pages[activePage]?.label?.toLowerCase()}. Pour plusieurs pages, cochez toutes celles à analyser.</p><div className="recipe-crop-stage recipe-source-crop"><img src={preview} alt="Page à analyser" /><div className="recipe-crop-frame" style={{left:(pages[activePage]?.crop.x/10)+'%',top:(pages[activePage]?.crop.y/10)+'%',width:(pages[activePage]?.crop.width/10)+'%',height:(pages[activePage]?.crop.height/10)+'%'}}></div></div><div className="recipe-crop-controls">{[['x','Position horizontale'],['y','Position verticale'],['width','Largeur'],['height','Hauteur']].map(([key,label]) => { const r=pages[activePage]?.crop; if(!r) return null; const max=key==='x'?1000-r.width:key==='y'?1000-r.height:key==='width'?1000-r.x:1000-r.y; return <label key={key}>{label}<input type="range" min={key==='width'||key==='height'?40:0} max={max} value={r[key]} onChange={e=>{const next={...r,[key]:Number(e.target.value)};updateSelectionCrop(next)}} /></label>})}</div></>}
+    {preview && <><p className="field-hint">Cadrez la zone de la recette sur {pages[activePage]?.label?.toLowerCase()}. Pour plusieurs pages, cochez toutes celles à analyser.</p><div className="recipe-crop-stage recipe-source-crop"><img src={preview} alt="Page à analyser" /><div className="recipe-crop-frame" style={{left:(pages[activePage]?.crop.x/10)+'%',top:(pages[activePage]?.crop.y/10)+'%',width:(pages[activePage]?.crop.width/10)+'%',height:(pages[activePage]?.crop.height/10)+'%'}}><span className="crop-grid-v crop-grid-one"/><span className="crop-grid-v crop-grid-two"/><span className="crop-grid-h crop-grid-one"/><span className="crop-grid-h crop-grid-two"/><button type="button" className="crop-handle crop-handle-tl" aria-label="Redimensionner depuis le coin supérieur gauche" onPointerDown={event => startSourceResize('tl', event)}/><button type="button" className="crop-handle crop-handle-tr" aria-label="Redimensionner depuis le coin supérieur droit" onPointerDown={event => startSourceResize('tr', event)}/><button type="button" className="crop-handle crop-handle-bl" aria-label="Redimensionner depuis le coin inférieur gauche" onPointerDown={event => startSourceResize('bl', event)}/><button type="button" className="crop-handle crop-handle-br" aria-label="Redimensionner depuis le coin inférieur droit" onPointerDown={event => startSourceResize('br', event)}/></div></div><div className="recipe-crop-controls">{[['x','Position horizontale'],['y','Position verticale'],['width','Largeur'],['height','Hauteur']].map(([key,label]) => { const r=pages[activePage]?.crop; if(!r) return null; const max=key==='x'?1000-r.width:key==='y'?1000-r.height:key==='width'?1000-r.x:1000-r.y; return <label key={key}>{label}<input type="range" min={key==='width'||key==='height'?40:0} max={max} value={r[key]} onChange={e=>{const next={...r,[key]:Number(e.target.value)};updateSelectionCrop(next)}} /></label>})}</div></>}
     {error && <div className="form-error">{error}</div>}
     <button type="button" className="secondary-button" onClick={analyze} disabled={!file || loading || preparing || !pages.some(page => page.selected)}>
       {loading ? 'Analyse en cours…' : 'Analyser et préremplir'}
