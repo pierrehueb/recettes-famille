@@ -91,7 +91,7 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
   }
 
   const prepareFile = async nextFile => {
-    setFile(nextFile); setPages([]); setActivePage(0); setCrop(null); setCropPreview(''); onPhotoChange?.(null); onSourceChange?.(nextFile)
+    setFile(nextFile); setPages([]); setActivePage(0); setCrop(null); setCropPreview(''); onPhotoChange?.(null); onSourceChange?.(null)
     if (!nextFile) return
     if (nextFile.type !== 'application/pdf') {
       setPages([{ file: nextFile, selected: true, crop: { x: 0, y: 0, width: 1000, height: 1000 }, label: 'Image' }])
@@ -160,6 +160,7 @@ export default function RecipeImport({ onImported, onPhotoChange, onSourceChange
     setLoading(true); setError(''); setCrop(null); setCropPreview(''); onPhotoChange?.(null)
     try {
       const analysisFile = await buildAnalysisImage()
+      onSourceChange?.(analysisFile)
       const recipe = await analyzeRecipeScan(analysisFile, familyId)
       onImported(recipe)
       const box = recipe.illustration
