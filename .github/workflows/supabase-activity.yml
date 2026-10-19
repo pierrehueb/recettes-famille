@@ -1,0 +1,34 @@
+name: Supabase activity check
+
+on:
+  schedule:
+    - cron: '17 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check Supabase database availability
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_ANON_KEY" ]]; then
+            echo "::error::Configure SUPABASE_URL and SUPABASE_ANON_KEY as repository Actions secrets."
+            exit 1
+          fi
+          # Query the PostgreSQL REST API, not merely the public website.
+          # A missing/non-public table can yield 404/401; only 2xx is accepted.
+          curl --fail-with-body --silent --show-error --max-time 20 \
+            --get "${SUPABASE_URL%/}/rest/v1/recipes" \
+            --data-urlencode 'select=id' \
+            --data-urlencode 'limit=1' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -o /dev/null
